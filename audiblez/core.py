@@ -3,11 +3,11 @@
 # audiblez - A program to convert e-books into audiobooks using
 # Kokoro-82M model for high-quality text-to-speech synthesis.
 # by Claudio Santini 2025 - https://claudio.uk
+# Modified for MLX support on Apple Silicon
 import os
 import traceback
 from glob import glob
 
-import torch.cuda
 import spacy
 import ebooklib
 import soundfile
@@ -23,9 +23,25 @@ from tabulate import tabulate
 from pathlib import Path
 from string import Formatter
 from bs4 import BeautifulSoup
-from kokoro import KPipeline
 from ebooklib import epub
 from pick import pick
+
+# Detect Apple Silicon and use MLX for acceleration
+USE_MLX = platform.system() == 'Darwin' and platform.machine() == 'arm64'
+
+if USE_MLX:
+    try:
+        from mlx_audio.tts.models.kokoro import KokoroPipeline
+        from mlx_audio.tts.utils import load_model
+        print("🚀 Using MLX acceleration for Apple Silicon")
+    except ImportError:
+        print("⚠️  mlx-audio not installed, falling back to PyTorch")
+        USE_MLX = False
+        import torch.cuda
+        from kokoro import KPipeline
+else:
+    import torch.cuda
+    from kokoro import KPipeline
 
 sample_rate = 24000
 
@@ -107,14 +123,21 @@ def main(file_path, voice, pick_manually, speed, output_folder='.',
     stats = SimpleNamespace(
         total_chars=sum(map(len, texts)),
         processed_chars=0,
-        chars_per_sec=500 if torch.cuda.is_available() else 50)
+        chars_per_sec=300 if USE_MLX else (500 if torch.cuda.is_available() else 50))
     print('Started at:', time.strftime('%H:%M:%S'))
     print(f'Total characters: {stats.total_chars:,}')
     print('Total words:', len(' '.join(texts).split()))
     eta = strfdelta((stats.total_chars - stats.processed_chars) / stats.chars_per_sec)
     print(f'Estimated time remaining (assuming {stats.chars_per_sec} chars/sec): {eta}')
     set_espeak_library()
-    pipeline = KPipeline(lang_code=voice[0])  # a for american or b for british etc.
+    
+    # Initialize the appropriate pipeline based on platform
+    if USE_MLX:
+        model_id = 'prince-canuma/Kokoro-82M'
+        model = load_model(model_id)
+        pipeline = KokoroPipeline(lang_code=voice[0], model=model, repo_id=model_id)
+    else:
+        pipeline = KPipeline(lang_code=voice[0])  # a for american or b for british etc.
 
     chapter_wav_files = []
     for i, chapter in enumerate(selected_chapters, start=1):
@@ -199,6 +222,9 @@ def gen_audio_segments(pipeline, text, voice, speed, stats=None, max_sentences=N
     for i, sent in enumerate(sentences):
         if max_sentences and i > max_sentences: break
         for gs, ps, audio in pipeline(sent.text, voice=voice, speed=speed, split_pattern=r'\n\n\n'):
+            # MLX returns audio with shape (1, samples), squeeze to (samples,)
+            if USE_MLX and hasattr(audio, 'shape') and len(audio.shape) > 1:
+                audio = audio.squeeze(0)
             audio_segments.append(audio)
         if stats:
             stats.processed_chars += len(sent.text)
@@ -212,9 +238,15 @@ def gen_audio_segments(pipeline, text, voice, speed, stats=None, max_sentences=N
 
 def gen_text(text, voice='af_heart', output_file='text.wav', speed=1, play=False):
     lang_code = voice[:1]
-    pipeline = KPipeline(lang_code=lang_code)
+    # Initialize the appropriate pipeline based on platform
+    if USE_MLX:
+        model_id = 'prince-canuma/Kokoro-82M'
+        model = load_model(model_id)
+        pipeline = KokoroPipeline(lang_code=lang_code, model=model, repo_id=model_id)
+    else:
+        pipeline = KPipeline(lang_code=lang_code)
     load_spacy()
-    audio_segments = gen_audio_segments(pipeline, text, voice=voice, speed=speed);
+    audio_segments = gen_audio_segments(pipeline, text, voice=voice, speed=speed)
     final_audio = np.concatenate(audio_segments)
     soundfile.write(output_file, final_audio, sample_rate)
     if play:

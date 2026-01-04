@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # A simple wxWidgets UI for audiblez
+# Modified for MLX support on Apple Silicon
 
-import torch.cuda
 import numpy as np
 import soundfile
 import threading
@@ -18,6 +18,23 @@ from tempfile import NamedTemporaryFile
 from pathlib import Path
 
 from audiblez.voices import voices, flags
+
+# Detect Apple Silicon and use MLX for acceleration
+USE_MLX = platform.system() == 'Darwin' and platform.machine() == 'arm64'
+
+if USE_MLX:
+    try:
+        from mlx_audio.tts.models.kokoro import KokoroPipeline
+        from mlx_audio.tts.utils import load_model
+        print("🚀 GUI: Using MLX acceleration for Apple Silicon")
+    except ImportError:
+        print("⚠️  mlx-audio not installed, falling back to PyTorch")
+        USE_MLX = False
+        import torch.cuda
+        from kokoro import KPipeline
+else:
+    import torch.cuda
+    from kokoro import KPipeline
 
 EVENTS = {
     'CORE_STARTED': NewEvent(),
@@ -272,20 +289,30 @@ class MainWindow(wx.Frame):
         engine_label = wx.StaticText(panel, label="Engine:")
         engine_radio_panel = wx.Panel(panel)
         cpu_radio = wx.RadioButton(engine_radio_panel, label="CPU", style=wx.RB_GROUP)
-        cuda_radio = wx.RadioButton(engine_radio_panel, label="CUDA")
-        if torch.cuda.is_available():
-            cuda_radio.SetValue(True)
+        
+        if USE_MLX:
+            mlx_radio = wx.RadioButton(engine_radio_panel, label="MLX (Apple Silicon)")
+            mlx_radio.SetValue(True)
+            sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
+            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL, border=border)
+            engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            engine_radio_panel.SetSizer(engine_radio_panel_sizer)
+            engine_radio_panel_sizer.Add(mlx_radio, 0, wx.ALL, 5)
+            engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
         else:
-            cpu_radio.SetValue(True)
-            # cuda_radio.Disable()
-        sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
-        sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL, border=border)
-        engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        engine_radio_panel.SetSizer(engine_radio_panel_sizer)
-        engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
-        engine_radio_panel_sizer.Add(cuda_radio, 0, wx.ALL, 5)
-        cpu_radio.Bind(wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device('cpu'))
-        cuda_radio.Bind(wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device('cuda'))
+            cuda_radio = wx.RadioButton(engine_radio_panel, label="CUDA")
+            if torch.cuda.is_available():
+                cuda_radio.SetValue(True)
+            else:
+                cpu_radio.SetValue(True)
+            sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
+            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL, border=border)
+            engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
+            engine_radio_panel.SetSizer(engine_radio_panel_sizer)
+            engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
+            engine_radio_panel_sizer.Add(cuda_radio, 0, wx.ALL, 5)
+            cpu_radio.Bind(wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device('cpu'))
+            cuda_radio.Bind(wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device('cuda'))
 
         # Create a list of voices with flags
         flag_and_voice_list = []
@@ -484,8 +511,16 @@ class MainWindow(wx.Frame):
 
         def generate_preview():
             import audiblez.core as core
-            from kokoro import KPipeline
-            pipeline = KPipeline(lang_code=lang_code)
+            
+            # Use MLX pipeline on Apple Silicon, PyTorch otherwise
+            if USE_MLX:
+                model_id = 'prince-canuma/Kokoro-82M'
+                model = load_model(model_id)
+                pipeline = KokoroPipeline(lang_code=lang_code, model=model, repo_id=model_id)
+            else:
+                from kokoro import KPipeline
+                pipeline = KPipeline(lang_code=lang_code)
+            
             core.load_spacy()
             text = self.selected_chapter.extracted_text[:300]
             if len(text) == 0: return

@@ -12,3 +12,7 @@ chapters.txt
 *.onnx
 dist
 .venv
+
+*.m4b
+*.wav
+cover
