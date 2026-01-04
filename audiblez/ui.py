@@ -119,6 +119,8 @@ class MainWindow(wx.Frame):
     def on_core_finished(self, event):
         self.synthesis_in_progress = False
         self.open_folder_with_explorer(self.output_folder_text_ctrl.GetValue())
+        self.new_book_button.Show()
+        self.synth_panel.Layout()
 
     def create_layout(self):
         # Panels layout looks like this:
@@ -417,10 +419,33 @@ class MainWindow(wx.Frame):
         self.progress_bar_label.Hide()
         self.progress_bar.Hide()
 
+        # Add Start New Book button (Hidden initially)
+        self.new_book_button = wx.Button(panel, label="✨ Start Another Book")
+        self.new_book_button.Bind(wx.EVT_BUTTON, self.on_new_book)
+        self.new_book_button.Hide()
+        sizer.Add(self.new_book_button, 0, wx.ALL, 5)
+
         # Add ETA Label
         self.eta_label = wx.StaticText(panel, label="Estimated Time Remaining: ")
         self.eta_label.Hide()
         sizer.Add(self.eta_label, 0, wx.ALL, 5)
+
+    def on_new_book(self, event):
+        self.new_book_button.Hide()
+        self.progress_bar.Hide()
+        self.progress_bar_label.Hide()
+        self.eta_label.Hide()
+        self.start_button.Enable()
+        self.params_panel.Enable()
+        
+        # Reset table checkboxes
+        self.table.EnableCheckBoxes(True)
+
+        # Go back to start screen
+        self.splitter.Hide()
+        self.welcome_panel.Show()
+        self.Layout()
+
 
     def open_output_folder_dialog(self, event):
         with wx.DirDialog(self, "Choose a directory:", style=wx.DD_DEFAULT_STYLE) as dialog:
