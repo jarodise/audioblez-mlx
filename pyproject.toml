@@ -1,5 +1,5 @@
 [project]
-name = "audiblez-mlx"
+name = "audiblez"
 version = "0.4.10"
 description = "Generate audiobooks from e-books (epub to wav/m4b) - MLX Optimized for Apple Silicon"
 authors = [
