@@ -50,11 +50,14 @@ border = 5
 class MainWindow(wx.Frame):
     def __init__(self, parent, title):
         screen_width, screen_h = wx.GetDisplaySize()
-        self.window_width = int(screen_width * 0.6)
-        super().__init__(parent, title=title, size=(self.window_width, self.window_width * 3 // 4))
+        self.window_width = screen_width
+        super().__init__(parent, title=title, size=(screen_width, screen_h))
         
         # Ensure window has minimum size so UI elements are always visible
         self.SetMinSize((900, 700))
+        
+        # Maximize the window by default
+        self.Maximize(True)
         
         self.chapters_panel = None
         self.preview_threads = []
@@ -70,7 +73,6 @@ class MainWindow(wx.Frame):
 
         self.create_menu()
         self.create_layout()
-        self.Centre()
         self.Show(True)
         if Path('../epub/lewis.epub').exists(): self.open_epub('../epub/lewis.epub')
 
@@ -475,9 +477,9 @@ class MainWindow(wx.Frame):
         self.splitter_right.Layout()
         self.splitter.Layout()
         
-        # Force the main frame to recalculate layout based on minimum sizes
-        self.Fit()
+        # Force the main frame to recalculate layout and maximize
         self.Layout()
+        self.Maximize(True)
 
     def on_table_checked(self, event):
         self.document_chapters[event.GetIndex()].is_selected = True
