@@ -141,45 +141,60 @@ class MainWindow(wx.Frame):
         #                      start_button
         #                      ...
 
-        top_panel = wx.Panel(self)
-        top_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        top_panel.SetSizer(top_sizer)
-
-        # Open Epub button
-        open_epub_button = wx.Button(top_panel, label="📁 Open EPUB")
-        open_epub_button.Bind(wx.EVT_BUTTON, self.on_open)
-        top_sizer.Add(open_epub_button, 0, wx.ALL, 5)
-
-        # Open Markdown .md
-        # open_md_button = wx.Button(top_panel, label="📁 Open Markdown (.md)")
-        # open_md_button.Bind(wx.EVT_BUTTON, self.on_open)
-        # top_sizer.Add(open_md_button, 0, wx.ALL, 5)
-
-        # Open .txt
-        # open_txt_button = wx.Button(top_panel, label="📁 Open .txt")
-        # open_txt_button.Bind(wx.EVT_BUTTON, self.on_open)
-        # top_sizer.Add(open_txt_button, 0, wx.ALL, 5)
-
-        # Open PDF
-        # open_pdf_button = wx.Button(top_panel, label="📁 Open PDF")
-        # open_pdf_button.Bind(wx.EVT_BUTTON, self.on_open)
-        # top_sizer.Add(open_pdf_button, 0, wx.ALL, 5)
-
-        # About button
-        help_button = wx.Button(top_panel, label="ℹ️ About")
-        help_button.Bind(wx.EVT_BUTTON, lambda event: self.about_dialog())
-        top_sizer.Add(help_button, 0, wx.ALL, 5)
-
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(self.main_sizer)
 
-        # self.splitter = wx.SplitterWindow(self, -1)
-        # self.splitter.SetSashGravity(0.9)
+        # Create welcome panel (shown before EPUB is loaded)
+        self.welcome_panel = wx.Panel(self)
+        welcome_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.welcome_panel.SetSizer(welcome_sizer)
+        
+        # Add vertical spacer to center content
+        welcome_sizer.AddStretchSpacer(1)
+        
+        # App title
+        title_font = wx.Font(32, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        title_label = wx.StaticText(self.welcome_panel, label="🎧 Audiblez")
+        title_label.SetFont(title_font)
+        welcome_sizer.Add(title_label, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        
+        # Subtitle
+        subtitle_font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
+        subtitle_label = wx.StaticText(self.welcome_panel, label="Generate Audiobooks from E-books")
+        subtitle_label.SetFont(subtitle_font)
+        welcome_sizer.Add(subtitle_label, 0, wx.ALIGN_CENTER | wx.ALL, 5)
+        
+        # Description
+        desc_label = wx.StaticText(self.welcome_panel, label="Convert your EPUB files to high-quality audiobooks using Kokoro TTS")
+        welcome_sizer.Add(desc_label, 0, wx.ALIGN_CENTER | wx.ALL, 20)
+        
+        # Buttons panel (centered)
+        buttons_panel = wx.Panel(self.welcome_panel)
+        buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        buttons_panel.SetSizer(buttons_sizer)
+        
+        # Open EPUB button (larger)
+        open_epub_button = wx.Button(buttons_panel, label="📁 Open EPUB", size=(150, 40))
+        open_epub_button.Bind(wx.EVT_BUTTON, self.on_open)
+        buttons_sizer.Add(open_epub_button, 0, wx.ALL, 10)
+        
+        # About button
+        help_button = wx.Button(buttons_panel, label="ℹ️ About", size=(100, 40))
+        help_button.Bind(wx.EVT_BUTTON, lambda event: self.about_dialog())
+        buttons_sizer.Add(help_button, 0, wx.ALL, 10)
+        
+        welcome_sizer.Add(buttons_panel, 0, wx.ALIGN_CENTER | wx.ALL, 10)
+        
+        # Add vertical spacer to center content
+        welcome_sizer.AddStretchSpacer(1)
+        
+        # Splitter panel (shown after EPUB is loaded)
         self.splitter = wx.Panel(self)
         self.splitter_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.splitter.SetSizer(self.splitter_sizer)
+        self.splitter.Hide()  # Hidden initially
 
-        self.main_sizer.Add(top_panel, 0, wx.ALL | wx.EXPAND, 5)
+        self.main_sizer.Add(self.welcome_panel, 1, wx.EXPAND)
         self.main_sizer.Add(self.splitter, 1, wx.EXPAND)
 
     def create_layout_for_ebook(self, splitter):
@@ -425,8 +440,12 @@ class MainWindow(wx.Frame):
 
     def open_epub(self, file_path):
         # Cleanup previous layout
-        if hasattr(self, 'selected_book'):
+        if hasattr(self, 'selected_book') and self.selected_book:
             self.splitter.DestroyChildren()
+        
+        # Hide welcome panel, show splitter
+        self.welcome_panel.Hide()
+        self.splitter.Show()
 
         self.selected_file_path = file_path
         print(f"Opening file: {file_path}")  # Do something with the filepath (e.g., parse the EPUB)
