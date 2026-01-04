@@ -45,6 +45,56 @@ else:
 
 sample_rate = 24000
 
+# Expected speaking rate: ~150 words per minute = ~2.5 words per second
+# Average word length ~5 chars, so ~12.5 chars per second, or ~0.08 seconds per char
+MIN_DURATION_PER_CHAR = 0.03  # Minimum: very fast speech
+MAX_DURATION_PER_CHAR = 0.15  # Maximum: very slow speech
+MIN_RMS_THRESHOLD = 0.001    # Minimum RMS to consider audio not silent
+
+
+def verify_audio_quality(audio_file_path, text_length, sample_rate=24000):
+    """
+    Verify audio quality with simple checks:
+    1. File exists and has reasonable size
+    2. Duration is proportional to text length
+    3. Audio isn't silent (has actual content)
+    
+    Returns: (is_valid, issues_list)
+    """
+    issues = []
+    
+    # Check 1: File exists and size
+    if not Path(audio_file_path).exists():
+        return False, ["File does not exist"]
+    
+    file_size = Path(audio_file_path).stat().st_size
+    if file_size < 1000:  # Less than 1KB is suspicious
+        issues.append(f"File size too small: {file_size} bytes")
+    
+    # Check 2 & 3: Load audio and check duration + levels
+    try:
+        audio_data, sr = soundfile.read(audio_file_path)
+        duration = len(audio_data) / sr
+        
+        # Duration check
+        expected_min = text_length * MIN_DURATION_PER_CHAR
+        expected_max = text_length * MAX_DURATION_PER_CHAR
+        
+        if duration < expected_min:
+            issues.append(f"Audio too short: {duration:.1f}s (expected >{expected_min:.1f}s for {text_length} chars)")
+        elif duration > expected_max:
+            issues.append(f"Audio too long: {duration:.1f}s (expected <{expected_max:.1f}s for {text_length} chars)")
+        
+        # RMS (loudness) check - detect silent audio
+        rms = np.sqrt(np.mean(audio_data ** 2))
+        if rms < MIN_RMS_THRESHOLD:
+            issues.append(f"Audio appears silent: RMS={rms:.6f}")
+            
+    except Exception as e:
+        issues.append(f"Failed to read audio: {str(e)}")
+    
+    return len(issues) == 0, issues
+
 
 def load_spacy():
     if not spacy.util.is_package("xx_ent_wiki_sm"):
@@ -139,14 +189,15 @@ def main(file_path, voice, pick_manually, speed, output_folder='.',
     else:
         pipeline = KPipeline(lang_code=voice[0])  # a for american or b for british etc.
 
-    chapter_wav_files = []
+    chapter_mp3_files = []
+    failed_chapters = []  # Track chapters with quality issues
     for i, chapter in enumerate(selected_chapters, start=1):
         if max_chapters and i > max_chapters: break
         text = chapter.extracted_text
         xhtml_file_name = chapter.get_name().replace(' ', '_').replace('/', '_').replace('\\', '_')
-        chapter_wav_path = Path(output_folder) / filename.replace(extension, f'_chapter_{i}_{voice}_{xhtml_file_name}.wav')
-        chapter_wav_files.append(chapter_wav_path)
-        if Path(chapter_wav_path).exists():
+        chapter_mp3_path = Path(output_folder) / filename.replace(extension, f'_chapter_{i}_{voice}_{xhtml_file_name}.mp3')
+        chapter_mp3_files.append(chapter_mp3_path)
+        if Path(chapter_mp3_path).exists():
             print(f'File for chapter {i} already exists. Skipping')
             stats.processed_chars += len(text)
             if post_event:
@@ -154,7 +205,7 @@ def main(file_path, voice, pick_manually, speed, output_folder='.',
             continue
         if len(text.strip()) < 10:
             print(f'Skipping empty chapter {i}')
-            chapter_wav_files.remove(chapter_wav_path)
+            chapter_mp3_files.remove(chapter_mp3_path)
             continue
         if i == 1:
             # add intro text
@@ -165,20 +216,52 @@ def main(file_path, voice, pick_manually, speed, output_folder='.',
             pipeline, text, voice, speed, stats, post_event=post_event, max_sentences=max_sentences)
         if audio_segments:
             final_audio = np.concatenate(audio_segments)
-            soundfile.write(chapter_wav_path, final_audio, sample_rate)
+            # Write temporary WAV then convert to MP3 for smaller file size
+            temp_wav_path = chapter_mp3_path.with_suffix('.tmp.wav')
+            soundfile.write(temp_wav_path, final_audio, sample_rate)
+            # Convert to MP3 using ffmpeg
+            subprocess.run([
+                'ffmpeg', '-y', '-i', str(temp_wav_path),
+                '-codec:a', 'libmp3lame', '-qscale:a', '2',  # High quality VBR MP3
+                str(chapter_mp3_path)
+            ], capture_output=True)
+            temp_wav_path.unlink()  # Remove temporary WAV
+            
+            # Verify audio quality
+            is_valid, issues = verify_audio_quality(chapter_mp3_path, len(text))
+            if not is_valid:
+                print(f'⚠️  Quality issues detected in chapter {i}:')
+                for issue in issues:
+                    print(f'   - {issue}')
+                failed_chapters.append((i, chapter_mp3_path, issues))
+            else:
+                print(f'✅ Chapter {i} verified OK')
+            
             end_time = time.time()
             delta_seconds = end_time - start_time
             chars_per_sec = len(text) / delta_seconds
-            print('Chapter written to', chapter_wav_path)
+            print('Chapter written to', chapter_mp3_path)
             if post_event: post_event('CORE_CHAPTER_FINISHED', chapter_index=chapter.chapter_index)
             print(f'Chapter {i} read in {delta_seconds:.2f} seconds ({chars_per_sec:.0f} characters per second)')
         else:
             print(f'Warning: No audio generated for chapter {i}')
-            chapter_wav_files.remove(chapter_wav_path)
+            chapter_mp3_files.remove(chapter_mp3_path)
+            failed_chapters.append((i, chapter_mp3_path, ['No audio segments generated']))
+
+    # Report failed chapters
+    if failed_chapters:
+        print(f'\n{"="*60}')
+        print(f'⚠️  {len(failed_chapters)} chapter(s) have quality issues:')
+        for chapter_num, path, issues in failed_chapters:
+            print(f'  Chapter {chapter_num}: {path.name}')
+            for issue in issues:
+                print(f'    - {issue}')
+        print(f'\nTo regenerate a chapter, delete its MP3 file and run again.')
+        print(f'{"="*60}\n')
 
     if has_ffmpeg:
-        create_index_file(title, creator, chapter_wav_files, output_folder)
-        create_m4b(chapter_wav_files, filename, cover_image, output_folder)
+        create_index_file(title, creator, chapter_mp3_files, output_folder)
+        create_m4b(chapter_mp3_files, filename, cover_image, output_folder)
         if post_event: post_event('CORE_FINISHED')
 
 
@@ -324,19 +407,19 @@ def strfdelta(tdelta, fmt='{D:02}d {H:02}h {M:02}m {S:02}s'):
     return f.format(fmt, **values)
 
 
-def concat_wavs_with_ffmpeg(chapter_files, output_folder, filename):
-    wav_list_txt = Path(output_folder) / filename.replace('.epub', '_wav_list.txt')
-    with open(wav_list_txt, 'w') as f:
-        for wav_file in chapter_files:
-            f.write(f"file '{wav_file}'\n")
+def concat_chapters_with_ffmpeg(chapter_files, output_folder, filename):
+    file_list_txt = Path(output_folder) / filename.replace('.epub', '_file_list.txt')
+    with open(file_list_txt, 'w') as f:
+        for chapter_file in chapter_files:
+            f.write(f"file '{chapter_file}'\n")
     concat_file_path = Path(output_folder) / filename.replace('.epub', '.tmp.mp4')
-    subprocess.run(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', wav_list_txt, '-c', 'copy', concat_file_path])
-    Path(wav_list_txt).unlink()
+    subprocess.run(['ffmpeg', '-y', '-f', 'concat', '-safe', '0', '-i', file_list_txt, '-c', 'copy', concat_file_path])
+    Path(file_list_txt).unlink()
     return concat_file_path
 
 
 def create_m4b(chapter_files, filename, cover_image, output_folder):
-    concat_file_path = concat_wavs_with_ffmpeg(chapter_files, output_folder, filename)
+    concat_file_path = concat_chapters_with_ffmpeg(chapter_files, output_folder, filename)
     final_filename = Path(output_folder) / filename.replace('.epub', '.m4b')
     chapters_txt_path = Path(output_folder) / "chapters.txt"
     print('Creating M4B file...')
@@ -375,7 +458,8 @@ def create_m4b(chapter_files, filename, cover_image, output_folder):
     Path(concat_file_path).unlink()
     if proc.returncode == 0:
         print(f'{final_filename} created. Enjoy your audiobook.')
-        print('Feel free to delete the intermediary .wav chapter files, the .m4b is all you need.')
+        return True
+    return False
 
 
 def probe_duration(file_name):
