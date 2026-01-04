@@ -24,6 +24,38 @@ On my M2 MacBook Pro, on CPU, it takes about 1 hour, at a rate of about 60 chara
 
 ## How to install the Command Line tool
 
+### Recommended: Using uv (fastest, avoids dependency issues)
+
+[uv](https://github.com/astral-sh/uv) is a fast Python package manager that handles dependencies cleanly. This is the recommended installation method:
+
+```bash
+# Install system dependencies
+brew install ffmpeg espeak-ng uv     # on Mac 🍏
+# or
+sudo apt install ffmpeg espeak-ng    # on Ubuntu/Debian 🐧
+pip install uv                        # then install uv via pip
+```
+
+```bash
+# Clone and set up the project
+git clone https://github.com/santinic/audiblez
+cd audiblez
+uv sync                               # Creates venv and installs all dependencies
+
+# Install pip (needed for spacy model downloads) and the spacy model
+uv pip install pip
+uv run python -m spacy download xx_ent_wiki_sm
+
+# Run the CLI
+uv run audiblez book.epub -v af_sky
+
+# Run the GUI (after installing extra dependencies)
+uv pip install pillow wxpython
+uv run audiblez-ui
+```
+
+### Alternative: Using pip
+
 If you have Python 3 on your computer, you can install it with pip.
 You also need `espeak-ng` and `ffmpeg` installed on your machine:
 
