@@ -5,7 +5,7 @@
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/audiblez)
 ![PyPI - Version](https://img.shields.io/pypi/v/audiblez)
 
-### v4 Now with Graphical interface, CUDA support, and many languages!
+### v4 Now with Graphical interface, CUDA support, MLX support (Apple Silicon) and many languages!
 
 ![Audiblez GUI on MacOSX](./imgs/mac.png)
 
@@ -19,6 +19,7 @@ It currently supports these languages: 🇺🇸 🇬🇧 🇪🇸 🇫🇷 🇮�
 On a Google Colab's T4 GPU via Cuda, **it takes about 5 minutes to convert "Animal's Farm" by Orwell** (which is about 160,000 characters) to audiobook, at a rate of about 600 characters per second.
 
 On my M2 MacBook Pro, on CPU, it takes about 1 hour, at a rate of about 60 characters per second.
+**With MLX acceleration (this fork), it runs ~40% faster (~70+ chars/sec), taking about 40 minutes.**
 
 
 ## How to install the Command Line tool
@@ -113,7 +114,18 @@ By default, audiblez runs on CPU. If you pass the option `--cuda` it will try to
 
 Check out this example: [Audiblez running on a Google Colab Notebook with Cuda ](https://colab.research.google.com/drive/164PQLowogprWQpRjKk33e-8IORAvqXKI?usp=sharing]).
 
-We don't currently support Apple Silicon, as there is not yet a Kokoro implementation in MLX. As soon as it will be available, we will support it.
+## How to run on Apple Silicon (MLX)
+
+This fork automatically detects Apple Silicon (M1/M2/M3) and uses [MLX](https://github.com/ml-explore/mlx) for hardware acceleration.
+No special flags are needed - just run it!
+
+```bash
+audiblez book.epub -v af_sky
+```
+
+You should see: `🚀 Using MLX acceleration for Apple Silicon`
+
+Performance improvement: ~40% faster than CPU (70+ chars/sec vs 50 chars/sec).
 
 ## Manually pick chapters to convert
 
