@@ -52,6 +52,10 @@ class MainWindow(wx.Frame):
         screen_width, screen_h = wx.GetDisplaySize()
         self.window_width = int(screen_width * 0.6)
         super().__init__(parent, title=title, size=(self.window_width, self.window_width * 3 // 4))
+        
+        # Ensure window has minimum size so UI elements are always visible
+        self.SetMinSize((900, 700))
+        
         self.chapters_panel = None
         self.preview_threads = []
         self.selected_chapter = None
@@ -180,6 +184,11 @@ class MainWindow(wx.Frame):
         splitter_left = wx.Panel(splitter, -1)
         splitter_right = wx.Panel(self.splitter)
         self.splitter_left, self.splitter_right = splitter_left, splitter_right
+        
+        # Set minimum sizes to ensure panels are visible on launch
+        splitter_left.SetMinSize((250, 400))
+        splitter_right.SetMinSize((500, 400))
+        
         self.splitter_sizer.Add(splitter_left, 1, wx.ALL | wx.EXPAND, 5)
         self.splitter_sizer.Add(splitter_right, 2, wx.ALL | wx.EXPAND, 5)
 
@@ -209,6 +218,11 @@ class MainWindow(wx.Frame):
         splitter_right.SetSizer(splitter_right_sizer)
 
         self.create_right_panel(splitter_right)
+        
+        # Set minimum sizes for center and right panels
+        self.center_panel.SetMinSize((250, 300))
+        self.right_panel.SetMinSize((450, 300))
+        
         splitter_right_sizer.Add(self.center_panel, 1, wx.ALL | wx.EXPAND, 5)
         splitter_right_sizer.Add(self.right_panel, 1, wx.ALL | wx.EXPAND, 5)
 
@@ -253,17 +267,19 @@ class MainWindow(wx.Frame):
         book_details_panel.SetSizer(book_details_sizer)
         self.book_info_sizer.Add(book_details_panel, 1, wx.ALL | wx.EXPAND, 5)
 
-        # Add title
+        # Add title with wrapping
         title_label = wx.StaticText(book_details_panel, label="Title:")
         title_text = wx.StaticText(book_details_panel, label=self.selected_book_title)
+        title_text.Wrap(200)  # Enable text wrapping
         book_details_sizer.Add(title_label, pos=(0, 0), flag=wx.ALL, border=5)
-        book_details_sizer.Add(title_text, pos=(0, 1), flag=wx.ALL, border=5)
+        book_details_sizer.Add(title_text, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=5)
 
-        # Add Author
+        # Add Author with wrapping
         author_label = wx.StaticText(book_details_panel, label="Author:")
         author_text = wx.StaticText(book_details_panel, label=self.selected_book_author)
+        author_text.Wrap(200)  # Enable text wrapping
         book_details_sizer.Add(author_label, pos=(1, 0), flag=wx.ALL, border=5)
-        book_details_sizer.Add(author_text, pos=(1, 1), flag=wx.ALL, border=5)
+        book_details_sizer.Add(author_text, pos=(1, 1), flag=wx.ALL | wx.EXPAND, border=5)
 
         # Add Total length
         length_label = wx.StaticText(book_details_panel, label="Total Length:")
@@ -273,7 +289,10 @@ class MainWindow(wx.Frame):
             total_len = sum([len(c.extracted_text) for c in self.document_chapters])
         length_text = wx.StaticText(book_details_panel, label=f'{total_len:,} characters')
         book_details_sizer.Add(length_label, pos=(2, 0), flag=wx.ALL, border=5)
-        book_details_sizer.Add(length_text, pos=(2, 1), flag=wx.ALL, border=5)
+        book_details_sizer.Add(length_text, pos=(2, 1), flag=wx.ALL | wx.EXPAND, border=5)
+        
+        # Make column 1 growable so text doesn't get cut off (must be after items are added)
+        book_details_sizer.AddGrowableCol(1, 1)
 
     def create_params_panel(self):
         panel_box = wx.Panel(self.right_panel, style=wx.SUNKEN_BORDER)
@@ -294,7 +313,7 @@ class MainWindow(wx.Frame):
             mlx_radio = wx.RadioButton(engine_radio_panel, label="MLX (Apple Silicon)")
             mlx_radio.SetValue(True)
             sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
-            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL, border=border)
+            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border)
             engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
             engine_radio_panel.SetSizer(engine_radio_panel_sizer)
             engine_radio_panel_sizer.Add(mlx_radio, 0, wx.ALL, 5)
@@ -306,7 +325,7 @@ class MainWindow(wx.Frame):
             else:
                 cpu_radio.SetValue(True)
             sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
-            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL, border=border)
+            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border)
             engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
             engine_radio_panel.SetSizer(engine_radio_panel_sizer)
             engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
@@ -326,7 +345,7 @@ class MainWindow(wx.Frame):
         voice_dropdown = wx.ComboBox(panel, choices=flag_and_voice_list, value=default_voice)
         voice_dropdown.Bind(wx.EVT_COMBOBOX, self.on_select_voice)
         sizer.Add(voice_label, pos=(1, 0), flag=wx.ALL, border=border)
-        sizer.Add(voice_dropdown, pos=(1, 1), flag=wx.ALL, border=border)
+        sizer.Add(voice_dropdown, pos=(1, 1), flag=wx.ALL | wx.EXPAND, border=border)
 
         # Add dropdown for speed
         speed_label = wx.StaticText(panel, label="Speed:")
@@ -334,18 +353,20 @@ class MainWindow(wx.Frame):
         self.selected_speed = '1.0'
         speed_text_input.Bind(wx.EVT_TEXT, self.on_select_speed)
         sizer.Add(speed_label, pos=(2, 0), flag=wx.ALL, border=border)
-        sizer.Add(speed_text_input, pos=(2, 1), flag=wx.ALL, border=border)
+        sizer.Add(speed_text_input, pos=(2, 1), flag=wx.ALL | wx.EXPAND, border=border)
 
         # Add file dialog selector to select output folder
         output_folder_label = wx.StaticText(panel, label="Output Folder:")
         self.output_folder_text_ctrl = wx.TextCtrl(panel, value=os.path.abspath('.'))
         self.output_folder_text_ctrl.SetEditable(False)
-        # self.output_folder_text_ctrl.SetMinSize((200, -1))
         output_folder_button = wx.Button(panel, label="📂 Select")
         output_folder_button.Bind(wx.EVT_BUTTON, self.open_output_folder_dialog)
         sizer.Add(output_folder_label, pos=(3, 0), flag=wx.ALL, border=border)
         sizer.Add(self.output_folder_text_ctrl, pos=(3, 1), flag=wx.ALL | wx.EXPAND, border=border)
         sizer.Add(output_folder_button, pos=(4, 1), flag=wx.ALL, border=border)
+        
+        # Make column 1 growable so controls expand properly (must be after items are added)
+        sizer.AddGrowableCol(1, 1)
 
     def create_synthesis_panel(self):
         # Think and identify layout issue with the folling code
@@ -453,6 +474,10 @@ class MainWindow(wx.Frame):
         self.splitter_left.Layout()
         self.splitter_right.Layout()
         self.splitter.Layout()
+        
+        # Force the main frame to recalculate layout based on minimum sizes
+        self.Fit()
+        self.Layout()
 
     def on_table_checked(self, event):
         self.document_chapters[event.GetIndex()].is_selected = True
