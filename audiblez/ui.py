@@ -20,12 +20,13 @@ from pathlib import Path
 from audiblez.voices import voices, flags
 
 # Detect Apple Silicon and use MLX for acceleration
-USE_MLX = platform.system() == 'Darwin' and platform.machine() == 'arm64'
+USE_MLX = platform.system() == "Darwin" and platform.machine() == "arm64"
 
 if USE_MLX:
     try:
         from mlx_audio.tts.models.kokoro import KokoroPipeline
         from mlx_audio.tts.utils import load_model
+
         print("🚀 GUI: Using MLX acceleration for Apple Silicon")
     except ImportError:
         print("⚠️  mlx-audio not installed, falling back to PyTorch")
@@ -37,11 +38,11 @@ else:
     from kokoro import KPipeline
 
 EVENTS = {
-    'CORE_STARTED': NewEvent(),
-    'CORE_PROGRESS': NewEvent(),
-    'CORE_CHAPTER_STARTED': NewEvent(),
-    'CORE_CHAPTER_FINISHED': NewEvent(),
-    'CORE_FINISHED': NewEvent()
+    "CORE_STARTED": NewEvent(),
+    "CORE_PROGRESS": NewEvent(),
+    "CORE_CHAPTER_STARTED": NewEvent(),
+    "CORE_CHAPTER_FINISHED": NewEvent(),
+    "CORE_FINISHED": NewEvent(),
 }
 
 border = 5
@@ -52,29 +53,30 @@ class MainWindow(wx.Frame):
         screen_width, screen_h = wx.GetDisplaySize()
         self.window_width = screen_width
         super().__init__(parent, title=title, size=(screen_width, screen_h))
-        
+
         # Ensure window has minimum size so UI elements are always visible
         self.SetMinSize((900, 700))
-        
+
         # Maximize the window by default
         self.Maximize(True)
-        
+
         self.chapters_panel = None
         self.preview_threads = []
         self.selected_chapter = None
         self.selected_book = None
         self.synthesis_in_progress = False
 
-        self.Bind(EVENTS['CORE_STARTED'][1], self.on_core_started)
-        self.Bind(EVENTS['CORE_CHAPTER_STARTED'][1], self.on_core_chapter_started)
-        self.Bind(EVENTS['CORE_CHAPTER_FINISHED'][1], self.on_core_chapter_finished)
-        self.Bind(EVENTS['CORE_PROGRESS'][1], self.on_core_progress)
-        self.Bind(EVENTS['CORE_FINISHED'][1], self.on_core_finished)
+        self.Bind(EVENTS["CORE_STARTED"][1], self.on_core_started)
+        self.Bind(EVENTS["CORE_CHAPTER_STARTED"][1], self.on_core_chapter_started)
+        self.Bind(EVENTS["CORE_CHAPTER_FINISHED"][1], self.on_core_chapter_finished)
+        self.Bind(EVENTS["CORE_PROGRESS"][1], self.on_core_progress)
+        self.Bind(EVENTS["CORE_FINISHED"][1], self.on_core_finished)
 
         self.create_menu()
         self.create_layout()
         self.Show(True)
-        if Path('../epub/lewis.epub').exists(): self.open_epub('../epub/lewis.epub')
+        if Path("../epub/lewis.epub").exists():
+            self.open_epub("../epub/lewis.epub")
 
     def create_menu(self):
         menubar = wx.MenuBar()
@@ -91,7 +93,7 @@ class MainWindow(wx.Frame):
         self.SetMenuBar(menubar)
 
     def on_core_started(self, event):
-        print('CORE_STARTED')
+        print("CORE_STARTED")
         self.progress_bar_label.Show()
         self.progress_bar.Show()
         self.progress_bar.SetValue(0)
@@ -150,46 +152,57 @@ class MainWindow(wx.Frame):
         self.welcome_panel = wx.Panel(self)
         welcome_sizer = wx.BoxSizer(wx.VERTICAL)
         self.welcome_panel.SetSizer(welcome_sizer)
-        
+
         # Add vertical spacer to center content
         welcome_sizer.AddStretchSpacer(1)
-        
+
         # App title
-        title_font = wx.Font(32, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD)
+        title_font = wx.Font(
+            32, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD
+        )
         title_label = wx.StaticText(self.welcome_panel, label="🎧 Audiblez")
         title_label.SetFont(title_font)
         welcome_sizer.Add(title_label, 0, wx.ALIGN_CENTER | wx.ALL, 10)
-        
+
         # Subtitle
-        subtitle_font = wx.Font(16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL)
-        subtitle_label = wx.StaticText(self.welcome_panel, label="Generate Audiobooks from E-books")
+        subtitle_font = wx.Font(
+            16, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_NORMAL
+        )
+        subtitle_label = wx.StaticText(
+            self.welcome_panel, label="Generate Audiobooks from E-books"
+        )
         subtitle_label.SetFont(subtitle_font)
         welcome_sizer.Add(subtitle_label, 0, wx.ALIGN_CENTER | wx.ALL, 5)
-        
+
         # Description
-        desc_label = wx.StaticText(self.welcome_panel, label="Convert your EPUB files to high-quality audiobooks using Kokoro TTS")
+        desc_label = wx.StaticText(
+            self.welcome_panel,
+            label="Convert your EPUB files to high-quality audiobooks using Kokoro TTS",
+        )
         welcome_sizer.Add(desc_label, 0, wx.ALIGN_CENTER | wx.ALL, 20)
-        
+
         # Buttons panel (centered)
         buttons_panel = wx.Panel(self.welcome_panel)
         buttons_sizer = wx.BoxSizer(wx.HORIZONTAL)
         buttons_panel.SetSizer(buttons_sizer)
-        
+
         # Open EPUB button (larger)
-        open_epub_button = wx.Button(buttons_panel, label="📁 Open EPUB", size=(150, 40))
+        open_epub_button = wx.Button(
+            buttons_panel, label="📁 Open EPUB", size=(150, 40)
+        )
         open_epub_button.Bind(wx.EVT_BUTTON, self.on_open)
         buttons_sizer.Add(open_epub_button, 0, wx.ALL, 10)
-        
+
         # About button
         help_button = wx.Button(buttons_panel, label="ℹ️ About", size=(100, 40))
         help_button.Bind(wx.EVT_BUTTON, lambda event: self.about_dialog())
         buttons_sizer.Add(help_button, 0, wx.ALL, 10)
-        
+
         welcome_sizer.Add(buttons_panel, 0, wx.ALIGN_CENTER | wx.ALL, 10)
-        
+
         # Add vertical spacer to center content
         welcome_sizer.AddStretchSpacer(1)
-        
+
         # Splitter panel (shown after EPUB is loaded)
         self.splitter = wx.Panel(self)
         self.splitter_sizer = wx.BoxSizer(wx.HORIZONTAL)
@@ -203,11 +216,11 @@ class MainWindow(wx.Frame):
         splitter_left = wx.Panel(splitter, -1)
         splitter_right = wx.Panel(self.splitter)
         self.splitter_left, self.splitter_right = splitter_left, splitter_right
-        
+
         # Set minimum sizes to ensure panels are visible on launch
         splitter_left.SetMinSize((250, 400))
         splitter_right.SetMinSize((500, 400))
-        
+
         self.splitter_sizer.Add(splitter_left, 1, wx.ALL | wx.EXPAND, 5)
         self.splitter_sizer.Add(splitter_right, 2, wx.ALL | wx.EXPAND, 5)
 
@@ -218,14 +231,25 @@ class MainWindow(wx.Frame):
         self.center_panel = wx.Panel(splitter_right)
         self.center_sizer = wx.BoxSizer(wx.VERTICAL)
         self.center_panel.SetSizer(self.center_sizer)
-        self.text_area = wx.TextCtrl(self.center_panel, style=wx.TE_MULTILINE, size=(int(self.window_width * 0.4), -1))
+        self.text_area = wx.TextCtrl(
+            self.center_panel,
+            style=wx.TE_MULTILINE,
+            size=(int(self.window_width * 0.4), -1),
+        )
         font = wx.Font(14, wx.MODERN, wx.NORMAL, wx.NORMAL)
         self.text_area.SetFont(font)
         # On text change, update the extracted_text attribute of the selected_chapter:
-        self.text_area.Bind(wx.EVT_TEXT, lambda event: setattr(self.selected_chapter, 'extracted_text', self.text_area.GetValue()))
+        self.text_area.Bind(
+            wx.EVT_TEXT,
+            lambda event: setattr(
+                self.selected_chapter, "extracted_text", self.text_area.GetValue()
+            ),
+        )
 
         self.chapter_label = wx.StaticText(
-            self.center_panel, label=f'Edit / Preview content for section "{self.selected_chapter.short_name}":')
+            self.center_panel,
+            label=f'Edit / Preview content for section "{self.selected_chapter.short_name}":',
+        )
         preview_button = wx.Button(self.center_panel, label="🔊 Preview")
         preview_button.Bind(wx.EVT_BUTTON, self.on_preview_chapter)
 
@@ -237,19 +261,21 @@ class MainWindow(wx.Frame):
         splitter_right.SetSizer(splitter_right_sizer)
 
         self.create_right_panel(splitter_right)
-        
+
         # Set minimum sizes for center and right panels
         self.center_panel.SetMinSize((250, 300))
         self.right_panel.SetMinSize((450, 300))
-        
+
         splitter_right_sizer.Add(self.center_panel, 1, wx.ALL | wx.EXPAND, 5)
         splitter_right_sizer.Add(self.right_panel, 1, wx.ALL | wx.EXPAND, 5)
 
     def about_dialog(self):
-        msg = ("A simple tool to generate audiobooks from EPUB files using Kokoro-82M models\n" +
-               "Distributed under the MIT License.\n\n" +
-               "by Claudio Santini 2025\nand many contributors.\n\n" +
-               "https://claudio.uk\n\n")
+        msg = (
+            "A simple tool to generate audiobooks from EPUB files using Kokoro-82M models\n"
+            + "Distributed under the MIT License.\n\n"
+            + "by Claudio Santini 2025\nand many contributors.\n\n"
+            + "https://claudio.uk\n\n"
+        )
         wx.MessageBox(msg, "Audiblez")
 
     def create_right_panel(self, splitter_right):
@@ -258,7 +284,9 @@ class MainWindow(wx.Frame):
         self.right_panel.SetSizer(self.right_sizer)
 
         self.book_info_panel_box = wx.Panel(self.right_panel, style=wx.SUNKEN_BORDER)
-        book_info_panel_box_sizer = wx.StaticBoxSizer(wx.VERTICAL, self.book_info_panel_box, "Book Details")
+        book_info_panel_box_sizer = wx.StaticBoxSizer(
+            wx.VERTICAL, self.book_info_panel_box, "Book Details"
+        )
         self.book_info_panel_box.SetSizer(book_info_panel_box_sizer)
         self.right_sizer.Add(self.book_info_panel_box, 1, wx.ALL | wx.EXPAND, 5)
 
@@ -291,31 +319,41 @@ class MainWindow(wx.Frame):
         title_text = wx.StaticText(book_details_panel, label=self.selected_book_title)
         title_text.Wrap(200)  # Enable text wrapping
         book_details_sizer.Add(title_label, pos=(0, 0), flag=wx.ALL, border=5)
-        book_details_sizer.Add(title_text, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=5)
+        book_details_sizer.Add(
+            title_text, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=5
+        )
 
         # Add Author with wrapping
         author_label = wx.StaticText(book_details_panel, label="Author:")
         author_text = wx.StaticText(book_details_panel, label=self.selected_book_author)
         author_text.Wrap(200)  # Enable text wrapping
         book_details_sizer.Add(author_label, pos=(1, 0), flag=wx.ALL, border=5)
-        book_details_sizer.Add(author_text, pos=(1, 1), flag=wx.ALL | wx.EXPAND, border=5)
+        book_details_sizer.Add(
+            author_text, pos=(1, 1), flag=wx.ALL | wx.EXPAND, border=5
+        )
 
         # Add Total length
         length_label = wx.StaticText(book_details_panel, label="Total Length:")
-        if not hasattr(self, 'document_chapters'):
+        if not hasattr(self, "document_chapters"):
             total_len = 0
         else:
             total_len = sum([len(c.extracted_text) for c in self.document_chapters])
-        length_text = wx.StaticText(book_details_panel, label=f'{total_len:,} characters')
+        length_text = wx.StaticText(
+            book_details_panel, label=f"{total_len:,} characters"
+        )
         book_details_sizer.Add(length_label, pos=(2, 0), flag=wx.ALL, border=5)
-        book_details_sizer.Add(length_text, pos=(2, 1), flag=wx.ALL | wx.EXPAND, border=5)
-        
+        book_details_sizer.Add(
+            length_text, pos=(2, 1), flag=wx.ALL | wx.EXPAND, border=5
+        )
+
         # Make column 1 growable so text doesn't get cut off (must be after items are added)
         book_details_sizer.AddGrowableCol(1, 1)
 
     def create_params_panel(self):
         panel_box = wx.Panel(self.right_panel, style=wx.SUNKEN_BORDER)
-        panel_box_sizer = wx.StaticBoxSizer(wx.VERTICAL, panel_box, "Audiobook Parameters")
+        panel_box_sizer = wx.StaticBoxSizer(
+            wx.VERTICAL, panel_box, "Audiobook Parameters"
+        )
         panel_box.SetSizer(panel_box_sizer)
 
         panel = self.params_panel = wx.Panel(panel_box)
@@ -327,12 +365,14 @@ class MainWindow(wx.Frame):
         engine_label = wx.StaticText(panel, label="Engine:")
         engine_radio_panel = wx.Panel(panel)
         cpu_radio = wx.RadioButton(engine_radio_panel, label="CPU", style=wx.RB_GROUP)
-        
+
         if USE_MLX:
             mlx_radio = wx.RadioButton(engine_radio_panel, label="MLX (Apple Silicon)")
             mlx_radio.SetValue(True)
             sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
-            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border)
+            sizer.Add(
+                engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border
+            )
             engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
             engine_radio_panel.SetSizer(engine_radio_panel_sizer)
             engine_radio_panel_sizer.Add(mlx_radio, 0, wx.ALL, 5)
@@ -344,24 +384,32 @@ class MainWindow(wx.Frame):
             else:
                 cpu_radio.SetValue(True)
             sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
-            sizer.Add(engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border)
+            sizer.Add(
+                engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border
+            )
             engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
             engine_radio_panel.SetSizer(engine_radio_panel_sizer)
             engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
             engine_radio_panel_sizer.Add(cuda_radio, 0, wx.ALL, 5)
-            cpu_radio.Bind(wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device('cpu'))
-            cuda_radio.Bind(wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device('cuda'))
+            cpu_radio.Bind(
+                wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device("cpu")
+            )
+            cuda_radio.Bind(
+                wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device("cuda")
+            )
 
         # Create a list of voices with flags
         flag_and_voice_list = []
         for code, l in voices.items():
             for v in l:
-                flag_and_voice_list.append(f'{flags[code]} {v}')
+                flag_and_voice_list.append(f"{flags[code]} {v}")
 
         voice_label = wx.StaticText(panel, label="Voice:")
         default_voice = flag_and_voice_list[0]
         self.selected_voice = default_voice
-        voice_dropdown = wx.ComboBox(panel, choices=flag_and_voice_list, value=default_voice)
+        voice_dropdown = wx.ComboBox(
+            panel, choices=flag_and_voice_list, value=default_voice
+        )
         voice_dropdown.Bind(wx.EVT_COMBOBOX, self.on_select_voice)
         sizer.Add(voice_label, pos=(1, 0), flag=wx.ALL, border=border)
         sizer.Add(voice_dropdown, pos=(1, 1), flag=wx.ALL | wx.EXPAND, border=border)
@@ -369,28 +417,37 @@ class MainWindow(wx.Frame):
         # Add dropdown for speed
         speed_label = wx.StaticText(panel, label="Speed:")
         speed_text_input = wx.TextCtrl(panel, value="1.0")
-        self.selected_speed = '1.0'
+        self.selected_speed = "1.0"
         speed_text_input.Bind(wx.EVT_TEXT, self.on_select_speed)
         sizer.Add(speed_label, pos=(2, 0), flag=wx.ALL, border=border)
         sizer.Add(speed_text_input, pos=(2, 1), flag=wx.ALL | wx.EXPAND, border=border)
 
         # Add file dialog selector to select output folder
         output_folder_label = wx.StaticText(panel, label="Output Folder:")
-        self.output_folder_text_ctrl = wx.TextCtrl(panel, value=os.path.abspath('.'))
+        # Default to Downloads folder
+        default_path = str(Path.home() / "Downloads")
+        self.output_folder_text_ctrl = wx.TextCtrl(panel, value=default_path)
         self.output_folder_text_ctrl.SetEditable(False)
         output_folder_button = wx.Button(panel, label="📂 Select")
         output_folder_button.Bind(wx.EVT_BUTTON, self.open_output_folder_dialog)
         sizer.Add(output_folder_label, pos=(3, 0), flag=wx.ALL, border=border)
-        sizer.Add(self.output_folder_text_ctrl, pos=(3, 1), flag=wx.ALL | wx.EXPAND, border=border)
+        sizer.Add(
+            self.output_folder_text_ctrl,
+            pos=(3, 1),
+            flag=wx.ALL | wx.EXPAND,
+            border=border,
+        )
         sizer.Add(output_folder_button, pos=(4, 1), flag=wx.ALL, border=border)
-        
+
         # Make column 1 growable so controls expand properly (must be after items are added)
         sizer.AddGrowableCol(1, 1)
 
     def create_synthesis_panel(self):
         # Think and identify layout issue with the folling code
         panel_box = wx.Panel(self.right_panel, style=wx.SUNKEN_BORDER)
-        panel_box_sizer = wx.StaticBoxSizer(wx.VERTICAL, panel_box, "Audiobook Generation Status")
+        panel_box_sizer = wx.StaticBoxSizer(
+            wx.VERTICAL, panel_box, "Audiobook Generation Status"
+        )
         panel_box.SetSizer(panel_box_sizer)
 
         panel = self.synth_panel = wx.Panel(panel_box)
@@ -437,7 +494,7 @@ class MainWindow(wx.Frame):
         self.eta_label.Hide()
         self.start_button.Enable()
         self.params_panel.Enable()
-        
+
         # Reset table checkboxes
         self.table.EnableCheckBoxes(True)
 
@@ -446,9 +503,10 @@ class MainWindow(wx.Frame):
         self.welcome_panel.Show()
         self.Layout()
 
-
     def open_output_folder_dialog(self, event):
-        with wx.DirDialog(self, "Choose a directory:", style=wx.DD_DEFAULT_STYLE) as dialog:
+        with wx.DirDialog(
+            self, "Choose a directory:", style=wx.DD_DEFAULT_STYLE
+        ) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
                 return
             output_folder = dialog.GetPath()
@@ -460,35 +518,48 @@ class MainWindow(wx.Frame):
 
     def on_select_speed(self, event):
         speed = float(event.GetString())
-        print('Selected speed', speed)
+        print("Selected speed", speed)
         self.selected_speed = speed
 
     def open_epub(self, file_path):
         # Cleanup previous layout
-        if hasattr(self, 'selected_book') and self.selected_book:
+        if hasattr(self, "selected_book") and self.selected_book:
             self.splitter.DestroyChildren()
-        
+
         # Hide welcome panel, show splitter
         self.welcome_panel.Hide()
         self.splitter.Show()
 
         self.selected_file_path = file_path
-        print(f"Opening file: {file_path}")  # Do something with the filepath (e.g., parse the EPUB)
+        print(
+            f"Opening file: {file_path}"
+        )  # Do something with the filepath (e.g., parse the EPUB)
 
         from ebooklib import epub
-        from audiblez.core import find_document_chapters_and_extract_texts, find_good_chapters, find_cover
+        from audiblez.core import (
+            find_document_chapters_and_extract_texts,
+            find_good_chapters,
+            find_cover,
+        )
+
         book = epub.read_epub(file_path)
-        meta_title = book.get_metadata('DC', 'title')
-        self.selected_book_title = meta_title[0][0] if meta_title else ''
-        meta_creator = book.get_metadata('DC', 'creator')
-        self.selected_book_author = meta_creator[0][0] if meta_creator else ''
+        meta_title = book.get_metadata("DC", "title")
+        self.selected_book_title = meta_title[0][0] if meta_title else ""
+        meta_creator = book.get_metadata("DC", "creator")
+        self.selected_book_author = meta_creator[0][0] if meta_creator else ""
         self.selected_book = book
 
         self.document_chapters = find_document_chapters_and_extract_texts(book)
         good_chapters = find_good_chapters(self.document_chapters)
         self.selected_chapter = good_chapters[0]
         for chapter in self.document_chapters:
-            chapter.short_name = chapter.get_name().replace('.xhtml', '').replace('xhtml/', '').replace('.html', '').replace('Text/', '')
+            chapter.short_name = (
+                chapter.get_name()
+                .replace(".xhtml", "")
+                .replace("xhtml/", "")
+                .replace(".html", "")
+                .replace("Text/", "")
+            )
             chapter.is_selected = chapter in good_chapters
 
         self.create_layout_for_ebook(self.splitter)
@@ -520,7 +591,7 @@ class MainWindow(wx.Frame):
         self.splitter_left.Layout()
         self.splitter_right.Layout()
         self.splitter.Layout()
-        
+
         # Force the main frame to recalculate layout and maximize
         self.Layout()
         self.Maximize(True)
@@ -533,13 +604,17 @@ class MainWindow(wx.Frame):
 
     def on_table_selected(self, event):
         chapter = self.document_chapters[event.GetIndex()]
-        print('Selected', event.GetIndex(), chapter.short_name)
+        print("Selected", event.GetIndex(), chapter.short_name)
         self.selected_chapter = chapter
         self.text_area.SetValue(chapter.extracted_text)
-        self.chapter_label.SetLabel(f'Edit / Preview content for section "{chapter.short_name}":')
+        self.chapter_label.SetLabel(
+            f'Edit / Preview content for section "{chapter.short_name}":'
+        )
 
     def create_chapters_table_panel(self, good_chapters):
-        panel = ScrolledPanel(self.splitter_left, -1, style=wx.TAB_TRAVERSAL | wx.SUNKEN_BORDER)
+        panel = ScrolledPanel(
+            self.splitter_left, -1, style=wx.TAB_TRAVERSAL | wx.SUNKEN_BORDER
+        )
         sizer = wx.BoxSizer(wx.VERTICAL)
         panel.SetSizer(sizer)
 
@@ -560,16 +635,19 @@ class MainWindow(wx.Frame):
 
         for i, chapter in enumerate(self.document_chapters):
             auto_selected = chapter in good_chapters
-            table.Append(['', chapter.short_name, f"{len(chapter.extracted_text):,}"])
-            if auto_selected: table.CheckItem(i)
+            table.Append(["", chapter.short_name, f"{len(chapter.extracted_text):,}"])
+            if auto_selected:
+                table.CheckItem(i)
 
-        title_text = wx.StaticText(panel, label=f"Select chapters to include in the audiobook:")
+        title_text = wx.StaticText(
+            panel, label=f"Select chapters to include in the audiobook:"
+        )
         sizer.Add(title_text, 0, wx.ALL, 5)
         sizer.Add(table, 1, wx.ALL | wx.EXPAND, 5)
         return panel
 
     def get_selected_voice(self):
-        return self.selected_voice.split(' ')[1]
+        return self.selected_voice.split(" ")[1]
 
     def get_selected_speed(self):
         return float(self.selected_speed)
@@ -582,28 +660,33 @@ class MainWindow(wx.Frame):
 
         def generate_preview():
             import audiblez.core as core
-            
+
             # Use MLX pipeline on Apple Silicon, PyTorch otherwise
             if USE_MLX:
-                model_id = 'prince-canuma/Kokoro-82M'
+                model_id = "prince-canuma/Kokoro-82M"
                 model = load_model(model_id)
-                pipeline = KokoroPipeline(lang_code=lang_code, model=model, repo_id=model_id)
+                pipeline = KokoroPipeline(
+                    lang_code=lang_code, model=model, repo_id=model_id
+                )
             else:
                 from kokoro import KPipeline
+
                 pipeline = KPipeline(lang_code=lang_code)
-            
+
             core.load_spacy()
             text = self.selected_chapter.extracted_text[:300]
-            if len(text) == 0: return
+            if len(text) == 0:
+                return
             audio_segments = core.gen_audio_segments(
                 pipeline,
                 text,
                 voice=self.get_selected_voice(),
-                speed=self.get_selected_speed())
+                speed=self.get_selected_speed(),
+            )
             final_audio = np.concatenate(audio_segments)
-            tmp_preview_wav_file = NamedTemporaryFile(suffix='.wav', delete=False)
+            tmp_preview_wav_file = NamedTemporaryFile(suffix=".wav", delete=False)
             soundfile.write(tmp_preview_wav_file, final_audio, core.sample_rate)
-            cmd = ['ffplay', '-autoexit', '-nodisp', tmp_preview_wav_file.name]
+            cmd = ["ffplay", "-autoexit", "-nodisp", tmp_preview_wav_file.name]
             subprocess.run(cmd)
             button.SetLabel("🔊 Preview")
             button.Enable()
@@ -619,9 +702,11 @@ class MainWindow(wx.Frame):
     def on_start(self, event):
         self.synthesis_in_progress = True
         file_path = self.selected_file_path
-        voice = self.selected_voice.split(' ')[1]  # Remove the flag
+        voice = self.selected_voice.split(" ")[1]  # Remove the flag
         speed = float(self.selected_speed)
-        selected_chapters = [chapter for chapter in self.document_chapters if chapter.is_selected]
+        selected_chapters = [
+            chapter for chapter in self.document_chapters if chapter.is_selected
+        ]
         self.start_button.Disable()
         self.params_panel.Disable()
 
@@ -629,27 +714,60 @@ class MainWindow(wx.Frame):
         for chapter_index, chapter in enumerate(self.document_chapters):
             if chapter in selected_chapters:
                 self.set_table_chapter_status(chapter_index, "Planned")
-                self.table.SetItem(chapter_index, 0, '✔️')
+                self.table.SetItem(chapter_index, 0, "✔️")
+
+        # Sanitize book title for folder name
+        safe_title = "".join(
+            [
+                c
+                for c in self.selected_book_title
+                if c.isalpha() or c.isdigit() or c in " ._-"
+            ]
+        ).strip()
+
+        if not safe_title:
+            safe_title = Path(file_path).stem
+
+        output_base = self.output_folder_text_ctrl.GetValue()
+        output_folder = str(Path(output_base) / safe_title)
+        print(f"Outputting to folder: {output_folder}")
 
         # self.stop_button.Show()
-        print('Starting Audiobook Synthesis', dict(file_path=file_path, voice=voice, pick_manually=False, speed=speed))
-        self.core_thread = CoreThread(params=dict(
-            file_path=file_path, voice=voice, pick_manually=False, speed=speed,
-            output_folder=self.output_folder_text_ctrl.GetValue(),
-            selected_chapters=selected_chapters))
+        print(
+            "Starting Audiobook Synthesis",
+            dict(file_path=file_path, voice=voice, pick_manually=False, speed=speed),
+        )
+        self.core_thread = CoreThread(
+            params=dict(
+                file_path=file_path,
+                voice=voice,
+                pick_manually=False,
+                speed=speed,
+                output_folder=output_folder,
+                selected_chapters=selected_chapters,
+            )
+        )
         self.core_thread.start()
 
     def on_open(self, event):
-        with wx.FileDialog(self, "Open EPUB File", wildcard="*.epub", style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST) as dialog:
+        with wx.FileDialog(
+            self,
+            "Open EPUB File",
+            wildcard="*.epub",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
             if dialog.ShowModal() == wx.ID_CANCEL:
                 return
             file_path = dialog.GetPath()
             print(f"Selected file: {file_path}")
             if not file_path:
-                print('No filepath?')
+                print("No filepath?")
                 return
             if self.synthesis_in_progress:
-                wx.MessageBox("Audiobook synthesis is still in progress. Please wait for it to finish.", "Audiobook Synthesis in Progress")
+                wx.MessageBox(
+                    "Audiobook synthesis is still in progress. Please wait for it to finish.",
+                    "Audiobook Synthesis in Progress",
+                )
             else:
                 wx.CallAfter(self.open_epub, file_path)
 
@@ -661,12 +779,12 @@ class MainWindow(wx.Frame):
 
     def open_folder_with_explorer(self, folder_path):
         try:
-            if platform.system() == 'Windows':
-                subprocess.Popen(['explorer', folder_path])
-            elif platform.system() == 'Linux':
-                subprocess.Popen(['xdg-open', folder_path])
-            elif platform.system() == 'Darwin':
-                subprocess.Popen(['open', folder_path])
+            if platform.system() == "Windows":
+                subprocess.Popen(["explorer", folder_path])
+            elif platform.system() == "Linux":
+                subprocess.Popen(["xdg-open", folder_path])
+            elif platform.system() == "Darwin":
+                subprocess.Popen(["open", folder_path])
         except Exception as e:
             print(e)
 
@@ -678,6 +796,7 @@ class CoreThread(threading.Thread):
 
     def run(self):
         import core
+
         core.main(**self.params, post_event=self.post_event)
 
     def post_event(self, event_name, **kwargs):
@@ -690,15 +809,15 @@ class CoreThread(threading.Thread):
 
 
 def main():
-    print('Starting GUI...')
+    print("Starting GUI...")
     app = wx.App(False)
     frame = MainWindow(None, "Audiblez - Generate Audiobooks from E-books")
     frame.Show(True)
     frame.Layout()
     app.SetTopWindow(frame)
-    print('Done.')
+    print("Done.")
     app.MainLoop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
