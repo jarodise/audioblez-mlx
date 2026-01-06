@@ -362,16 +362,36 @@ class MainWindow(wx.Frame):
         sizer = wx.GridBagSizer(10, 10)
         panel.SetSizer(sizer)
 
-        engine_label = wx.StaticText(panel, label="Engine:")
+        row = 0
+
+        # TTS Model selection (Kokoro vs Chatterbox)
+        tts_model_label = wx.StaticText(panel, label="TTS Model:")
+        tts_models = ["Kokoro (Multilingual)", "Chatterbox Turbo (English)"]
+        self.selected_tts_model = "kokoro"
+        self.tts_model_dropdown = wx.ComboBox(
+            panel, choices=tts_models, value=tts_models[0], style=wx.CB_READONLY
+        )
+        self.tts_model_dropdown.Bind(wx.EVT_COMBOBOX, self.on_select_tts_model)
+        sizer.Add(tts_model_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(
+            self.tts_model_dropdown,
+            pos=(row, 1),
+            flag=wx.ALL | wx.EXPAND,
+            border=border,
+        )
+        row += 1
+
+        # Hardware Engine selection (CPU/MLX/CUDA)
+        engine_label = wx.StaticText(panel, label="Hardware:")
         engine_radio_panel = wx.Panel(panel)
         cpu_radio = wx.RadioButton(engine_radio_panel, label="CPU", style=wx.RB_GROUP)
 
         if USE_MLX:
             mlx_radio = wx.RadioButton(engine_radio_panel, label="MLX (Apple Silicon)")
             mlx_radio.SetValue(True)
-            sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
+            sizer.Add(engine_label, pos=(row, 0), flag=wx.ALL, border=border)
             sizer.Add(
-                engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border
+                engine_radio_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
             )
             engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
             engine_radio_panel.SetSizer(engine_radio_panel_sizer)
@@ -383,9 +403,9 @@ class MainWindow(wx.Frame):
                 cuda_radio.SetValue(True)
             else:
                 cpu_radio.SetValue(True)
-            sizer.Add(engine_label, pos=(0, 0), flag=wx.ALL, border=border)
+            sizer.Add(engine_label, pos=(row, 0), flag=wx.ALL, border=border)
             sizer.Add(
-                engine_radio_panel, pos=(0, 1), flag=wx.ALL | wx.EXPAND, border=border
+                engine_radio_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
             )
             engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
             engine_radio_panel.SetSizer(engine_radio_panel_sizer)
@@ -397,49 +417,82 @@ class MainWindow(wx.Frame):
             cuda_radio.Bind(
                 wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device("cuda")
             )
+        row += 1
 
-        # Create a list of voices with flags
+        # Voice selection (for Kokoro)
         flag_and_voice_list = []
         for code, l in voices.items():
             for v in l:
                 flag_and_voice_list.append(f"{flags[code]} {v}")
 
-        voice_label = wx.StaticText(panel, label="Voice:")
+        self.voice_label = wx.StaticText(panel, label="Voice:")
         default_voice = flag_and_voice_list[0]
         self.selected_voice = default_voice
-        voice_dropdown = wx.ComboBox(
+        self.voice_dropdown = wx.ComboBox(
             panel, choices=flag_and_voice_list, value=default_voice
         )
-        voice_dropdown.Bind(wx.EVT_COMBOBOX, self.on_select_voice)
-        sizer.Add(voice_label, pos=(1, 0), flag=wx.ALL, border=border)
-        sizer.Add(voice_dropdown, pos=(1, 1), flag=wx.ALL | wx.EXPAND, border=border)
+        self.voice_dropdown.Bind(wx.EVT_COMBOBOX, self.on_select_voice)
+        sizer.Add(self.voice_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(
+            self.voice_dropdown, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
+        )
+        self.voice_row = row
+        row += 1
 
-        # Add dropdown for speed
+        # Voice Cloning section (for Chatterbox)
+        self.ref_audio_label = wx.StaticText(panel, label="Clone Voice:")
+        self.ref_audio_path = None
+        self.ref_audio_text_ctrl = wx.TextCtrl(
+            panel, value="(Optional) Select audio file..."
+        )
+        self.ref_audio_text_ctrl.SetEditable(False)
+        self.ref_audio_button = wx.Button(panel, label="📂")
+        self.ref_audio_button.Bind(wx.EVT_BUTTON, self.on_select_ref_audio)
+
+        ref_audio_panel = wx.Panel(panel)
+        ref_audio_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        ref_audio_panel.SetSizer(ref_audio_sizer)
+        ref_audio_sizer.Add(self.ref_audio_text_ctrl, 1, wx.EXPAND | wx.RIGHT, 5)
+        ref_audio_sizer.Add(self.ref_audio_button, 0)
+
+        sizer.Add(self.ref_audio_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(ref_audio_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border)
+        self.ref_audio_panel = ref_audio_panel
+        self.clone_voice_row = row
+        # Initially hide voice cloning (shown when Chatterbox selected)
+        self.ref_audio_label.Hide()
+        self.ref_audio_panel.Hide()
+        row += 1
+
+        # Speed
         speed_label = wx.StaticText(panel, label="Speed:")
         speed_text_input = wx.TextCtrl(panel, value="1.0")
         self.selected_speed = "1.0"
         speed_text_input.Bind(wx.EVT_TEXT, self.on_select_speed)
-        sizer.Add(speed_label, pos=(2, 0), flag=wx.ALL, border=border)
-        sizer.Add(speed_text_input, pos=(2, 1), flag=wx.ALL | wx.EXPAND, border=border)
+        sizer.Add(speed_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(
+            speed_text_input, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
+        )
+        row += 1
 
-        # Add file dialog selector to select output folder
+        # Output folder
         output_folder_label = wx.StaticText(panel, label="Output Folder:")
-        # Default to Downloads folder
         default_path = str(Path.home() / "Downloads")
         self.output_folder_text_ctrl = wx.TextCtrl(panel, value=default_path)
         self.output_folder_text_ctrl.SetEditable(False)
         output_folder_button = wx.Button(panel, label="📂 Select")
         output_folder_button.Bind(wx.EVT_BUTTON, self.open_output_folder_dialog)
-        sizer.Add(output_folder_label, pos=(3, 0), flag=wx.ALL, border=border)
+        sizer.Add(output_folder_label, pos=(row, 0), flag=wx.ALL, border=border)
         sizer.Add(
             self.output_folder_text_ctrl,
-            pos=(3, 1),
+            pos=(row, 1),
             flag=wx.ALL | wx.EXPAND,
             border=border,
         )
-        sizer.Add(output_folder_button, pos=(4, 1), flag=wx.ALL, border=border)
+        row += 1
+        sizer.Add(output_folder_button, pos=(row, 1), flag=wx.ALL, border=border)
 
-        # Make column 1 growable so controls expand properly (must be after items are added)
+        # Make column 1 growable so controls expand properly
         sizer.AddGrowableCol(1, 1)
 
     def create_synthesis_panel(self):
@@ -520,6 +573,45 @@ class MainWindow(wx.Frame):
         speed = float(event.GetString())
         print("Selected speed", speed)
         self.selected_speed = speed
+
+    def on_select_tts_model(self, event):
+        """Handle TTS model selection change."""
+        selection = event.GetString()
+        if "Chatterbox" in selection:
+            self.selected_tts_model = "chatterbox"
+            # Hide voice selection (Chatterbox uses default voice or cloning)
+            self.voice_label.Hide()
+            self.voice_dropdown.Hide()
+            # Show voice cloning option
+            self.ref_audio_label.Show()
+            self.ref_audio_panel.Show()
+        else:
+            self.selected_tts_model = "kokoro"
+            # Show voice selection for Kokoro
+            self.voice_label.Show()
+            self.voice_dropdown.Show()
+            # Hide voice cloning option
+            self.ref_audio_label.Hide()
+            self.ref_audio_panel.Hide()
+        self.params_panel.Layout()
+        print(f"Selected TTS model: {self.selected_tts_model}")
+
+    def on_select_ref_audio(self, event):
+        """Handle reference audio file selection for voice cloning."""
+        wildcard = "Audio files (*.mp3;*.wav;*.m4a;*.flac)|*.mp3;*.wav;*.m4a;*.flac"
+        with wx.FileDialog(
+            self,
+            "Select Reference Audio for Voice Cloning",
+            wildcard=wildcard,
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() == wx.ID_CANCEL:
+                return
+            self.ref_audio_path = dialog.GetPath()
+            # Show just the filename
+            filename = Path(self.ref_audio_path).name
+            self.ref_audio_text_ctrl.SetValue(filename)
+            print(f"Selected reference audio: {self.ref_audio_path}")
 
     def open_epub(self, file_path):
         # Cleanup previous layout
@@ -653,7 +745,6 @@ class MainWindow(wx.Frame):
         return float(self.selected_speed)
 
     def on_preview_chapter(self, event):
-        lang_code = self.get_selected_voice()[0]
         button = event.GetEventObject()
         button.SetLabel("⏳")
         button.Disable()
@@ -661,21 +752,20 @@ class MainWindow(wx.Frame):
         def generate_preview():
             import audiblez.core as core
 
-            # Use MLX pipeline on Apple Silicon, PyTorch otherwise
-            if USE_MLX:
-                model_id = "prince-canuma/Kokoro-82M"
-                model = load_model(model_id)
-                pipeline = KokoroPipeline(
-                    lang_code=lang_code, model=model, repo_id=model_id
-                )
-            else:
-                from kokoro import KPipeline
-
-                pipeline = KPipeline(lang_code=lang_code)
-
             core.load_spacy()
+
+            # Use the factory function to create pipeline based on selected engine
+            pipeline = core.create_tts_pipeline(
+                engine=self.selected_tts_model,
+                voice=self.get_selected_voice(),
+                ref_audio=getattr(self, "ref_audio_path", None),
+                ref_text=None,
+            )
+
             text = self.selected_chapter.extracted_text[:300]
             if len(text) == 0:
+                button.SetLabel("🔊 Preview")
+                button.Enable()
                 return
             audio_segments = core.gen_audio_segments(
                 pipeline,
@@ -683,11 +773,12 @@ class MainWindow(wx.Frame):
                 voice=self.get_selected_voice(),
                 speed=self.get_selected_speed(),
             )
-            final_audio = np.concatenate(audio_segments)
-            tmp_preview_wav_file = NamedTemporaryFile(suffix=".wav", delete=False)
-            soundfile.write(tmp_preview_wav_file, final_audio, core.sample_rate)
-            cmd = ["ffplay", "-autoexit", "-nodisp", tmp_preview_wav_file.name]
-            subprocess.run(cmd)
+            if audio_segments:
+                final_audio = np.concatenate(audio_segments)
+                tmp_preview_wav_file = NamedTemporaryFile(suffix=".wav", delete=False)
+                soundfile.write(tmp_preview_wav_file, final_audio, core.sample_rate)
+                cmd = ["ffplay", "-autoexit", "-nodisp", tmp_preview_wav_file.name]
+                subprocess.run(cmd)
             button.SetLabel("🔊 Preview")
             button.Enable()
 
@@ -745,6 +836,8 @@ class MainWindow(wx.Frame):
                 speed=speed,
                 output_folder=output_folder,
                 selected_chapters=selected_chapters,
+                engine=self.selected_tts_model,
+                ref_audio=getattr(self, "ref_audio_path", None),
             )
         )
         self.core_thread.start()

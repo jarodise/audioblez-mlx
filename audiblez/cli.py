@@ -6,21 +6,71 @@ from audiblez.voices import voices, available_voices_str
 
 
 def cli_main():
-    voices_str = ', '.join(voices)
-    epilog = ('example:\n' +
-              '  audiblez book.epub -l en-us -v af_sky\n\n' +
-              'to run GUI just run:\n'
-              '  audiblez-ui\n\n' +
-              'available voices:\n' +
-              available_voices_str)
-    default_voice = 'af_sky'
-    parser = argparse.ArgumentParser(epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('epub_file_path', help='Path to the epub file')
-    parser.add_argument('-v', '--voice', default=default_voice, help=f'Choose narrating voice: {voices_str}')
-    parser.add_argument('-p', '--pick', default=False, help=f'Interactively select which chapters to read in the audiobook', action='store_true')
-    parser.add_argument('-s', '--speed', default=1.0, help=f'Set speed from 0.5 to 2.0', type=float)
-    parser.add_argument('-c', '--cuda', default=False, help=f'Use GPU via Cuda in Torch if available', action='store_true')
-    parser.add_argument('-o', '--output', default='.', help='Output folder for the audiobook and temporary files', metavar='FOLDER')
+    voices_str = ", ".join(voices)
+    epilog = (
+        "example:\n"
+        + "  audiblez book.epub -v af_sky\n"
+        + "  audiblez book.epub -e chatterbox\n"
+        + "  audiblez book.epub -e chatterbox --ref-audio voice.mp3\n\n"
+        + "to run GUI just run:\n"
+        "  audiblez-ui\n\n"
+        + "available voices (for Kokoro engine):\n"
+        + available_voices_str
+    )
+    default_voice = "af_sky"
+    parser = argparse.ArgumentParser(
+        epilog=epilog, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("epub_file_path", help="Path to the epub file")
+    parser.add_argument(
+        "-v",
+        "--voice",
+        default=default_voice,
+        help=f"Choose narrating voice: {voices_str}",
+    )
+    parser.add_argument(
+        "-p",
+        "--pick",
+        default=False,
+        help="Interactively select which chapters to read",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-s", "--speed", default=1.0, help="Set speed from 0.5 to 2.0", type=float
+    )
+    parser.add_argument(
+        "-c",
+        "--cuda",
+        default=False,
+        help="Use GPU via CUDA in Torch if available",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-o",
+        "--output",
+        default=".",
+        help="Output folder for the audiobook",
+        metavar="FOLDER",
+    )
+    parser.add_argument(
+        "-e",
+        "--engine",
+        default="kokoro",
+        choices=["kokoro", "chatterbox"],
+        help="TTS engine to use (default: kokoro)",
+    )
+    parser.add_argument(
+        "--ref-audio",
+        default=None,
+        metavar="FILE",
+        help="Reference audio for voice cloning (Chatterbox only)",
+    )
+    parser.add_argument(
+        "--ref-text",
+        default=None,
+        metavar="TEXT",
+        help="Transcript of reference audio (auto-transcribed if not provided)",
+    )
 
     if len(sys.argv) == 1:
         parser.print_help(sys.stderr)
@@ -29,15 +79,26 @@ def cli_main():
 
     if args.cuda:
         import torch.cuda
+
         if torch.cuda.is_available():
-            print('CUDA GPU available')
-            torch.set_default_device('cuda')
+            print("CUDA GPU available")
+            torch.set_default_device("cuda")
         else:
-            print('CUDA GPU not available. Defaulting to CPU')
+            print("CUDA GPU not available. Defaulting to CPU")
 
     from core import main
-    main(args.epub_file_path, args.voice, args.pick, args.speed, args.output)
+
+    main(
+        args.epub_file_path,
+        args.voice,
+        args.pick,
+        args.speed,
+        args.output,
+        engine=args.engine,
+        ref_audio=args.ref_audio,
+        ref_text=args.ref_text,
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cli_main()
