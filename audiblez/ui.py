@@ -177,7 +177,7 @@ class MainWindow(wx.Frame):
         # Description
         desc_label = wx.StaticText(
             self.welcome_panel,
-            label="Convert your EPUB files to high-quality audiobooks using Kokoro TTS",
+            label="Convert your EPUB files to high-quality audiobooks using Chatterbox Turbo & Kokoro TTS",
         )
         welcome_sizer.Add(desc_label, 0, wx.ALIGN_CENTER | wx.ALL, 20)
 
@@ -271,7 +271,7 @@ class MainWindow(wx.Frame):
 
     def about_dialog(self):
         msg = (
-            "A simple tool to generate audiobooks from EPUB files using Kokoro-82M models\n"
+            "A simple tool to generate audiobooks from EPUB files using Chatterbox Turbo & Kokoro models\n"
             + "Distributed under the MIT License.\n\n"
             + "by Claudio Santini 2025\nand many contributors.\n\n"
             + "https://claudio.uk\n\n"
@@ -537,15 +537,27 @@ class MainWindow(wx.Frame):
         self.output_folder_text_ctrl.SetEditable(False)
         output_folder_button = wx.Button(panel, label="📂 Select")
         output_folder_button.Bind(wx.EVT_BUTTON, self.open_output_folder_dialog)
-        sizer.Add(output_folder_label, pos=(row, 0), flag=wx.ALL, border=border)
+
+        # Inline layout: Text + Button in one horizontal sizer
+        output_folder_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        output_folder_sizer.Add(
+            self.output_folder_text_ctrl, 1, wx.EXPAND | wx.RIGHT, 5
+        )
+        output_folder_sizer.Add(output_folder_button, 0, wx.ALIGN_CENTER_VERTICAL)
+
         sizer.Add(
-            self.output_folder_text_ctrl,
+            output_folder_label,
+            pos=(row, 0),
+            flag=wx.ALL | wx.ALIGN_CENTER_VERTICAL,
+            border=border,
+        )
+        sizer.Add(
+            output_folder_sizer,
             pos=(row, 1),
             flag=wx.ALL | wx.EXPAND,
             border=border,
         )
-        row += 1
-        sizer.Add(output_folder_button, pos=(row, 1), flag=wx.ALL, border=border)
+        # row += 1 (Button was consumed inline, no new row needed)
 
         # Make column 1 growable so controls expand properly
         sizer.AddGrowableCol(1, 1)
