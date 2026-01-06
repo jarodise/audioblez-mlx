@@ -366,7 +366,7 @@ class MainWindow(wx.Frame):
 
         # TTS Model selection (Kokoro vs Chatterbox)
         tts_model_label = wx.StaticText(panel, label="TTS Model:")
-        tts_models = ["Kokoro (Multilingual)", "Chatterbox Turbo (English)"]
+        tts_models = ["Kokoro", "Chatterbox Turbo (English)"]
         self.selected_tts_model = "kokoro"
         self.tts_model_dropdown = wx.ComboBox(
             panel, choices=tts_models, value=tts_models[0], style=wx.CB_READONLY
