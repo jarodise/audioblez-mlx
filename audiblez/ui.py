@@ -359,15 +359,15 @@ class MainWindow(wx.Frame):
         panel = self.params_panel = wx.Panel(panel_box)
         panel_box_sizer.Add(panel, 1, wx.ALL | wx.EXPAND, 5)
         self.right_sizer.Add(panel_box, 1, wx.ALL | wx.EXPAND, 5)
-        sizer = wx.GridBagSizer(10, 10)
+        sizer = wx.GridBagSizer(8, 8)
         panel.SetSizer(sizer)
 
         row = 0
 
         # TTS Model selection (Kokoro vs Chatterbox)
         tts_model_label = wx.StaticText(panel, label="TTS Model:")
-        tts_models = ["Kokoro", "Chatterbox Turbo (English)"]
-        self.selected_tts_model = "kokoro"
+        tts_models = ["Chatterbox Turbo (English)", "Kokoro"]
+        self.selected_tts_model = "chatterbox"
         self.tts_model_dropdown = wx.ComboBox(
             panel, choices=tts_models, value=tts_models[0], style=wx.CB_READONLY
         )
@@ -381,48 +381,10 @@ class MainWindow(wx.Frame):
         )
         row += 1
 
-        # Hardware Engine selection (CPU/MLX/CUDA)
-        engine_label = wx.StaticText(panel, label="Hardware:")
-        engine_radio_panel = wx.Panel(panel)
-        cpu_radio = wx.RadioButton(engine_radio_panel, label="CPU", style=wx.RB_GROUP)
-
-        if USE_MLX:
-            mlx_radio = wx.RadioButton(engine_radio_panel, label="MLX (Apple Silicon)")
-            mlx_radio.SetValue(True)
-            sizer.Add(engine_label, pos=(row, 0), flag=wx.ALL, border=border)
-            sizer.Add(
-                engine_radio_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
-            )
-            engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            engine_radio_panel.SetSizer(engine_radio_panel_sizer)
-            engine_radio_panel_sizer.Add(mlx_radio, 0, wx.ALL, 5)
-            engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
-        else:
-            cuda_radio = wx.RadioButton(engine_radio_panel, label="CUDA")
-            if torch.cuda.is_available():
-                cuda_radio.SetValue(True)
-            else:
-                cpu_radio.SetValue(True)
-            sizer.Add(engine_label, pos=(row, 0), flag=wx.ALL, border=border)
-            sizer.Add(
-                engine_radio_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
-            )
-            engine_radio_panel_sizer = wx.BoxSizer(wx.HORIZONTAL)
-            engine_radio_panel.SetSizer(engine_radio_panel_sizer)
-            engine_radio_panel_sizer.Add(cpu_radio, 0, wx.ALL, 5)
-            engine_radio_panel_sizer.Add(cuda_radio, 0, wx.ALL, 5)
-            cpu_radio.Bind(
-                wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device("cpu")
-            )
-            cuda_radio.Bind(
-                wx.EVT_RADIOBUTTON, lambda event: torch.set_default_device("cuda")
-            )
-        row += 1
-
         # Voice selection (for Kokoro)
         flag_and_voice_list = []
-        for code, l in voices.items():
-            for v in l:
+        for code, lang_voices in voices.items():
+            for v in lang_voices:
                 flag_and_voice_list.append(f"{flags[code]} {v}")
 
         self.voice_label = wx.StaticText(panel, label="Voice:")
@@ -439,34 +401,121 @@ class MainWindow(wx.Frame):
         self.voice_row = row
         row += 1
 
-        # Voice Cloning section (for Chatterbox)
-        self.ref_audio_label = wx.StaticText(panel, label="Clone Voice:")
+        # === Chatterbox Voice Settings Section ===
+        # Voice Reference picker
+        self.ref_audio_label = wx.StaticText(panel, label="Voice Reference:")
         self.ref_audio_path = None
-
-        # Create a sub-panel for the ref audio controls
         ref_audio_panel = wx.Panel(panel)
         ref_audio_sizer = wx.BoxSizer(wx.HORIZONTAL)
         ref_audio_panel.SetSizer(ref_audio_sizer)
-
-        # Create controls with ref_audio_panel as parent (not panel)
-        self.ref_audio_text_ctrl = wx.TextCtrl(
-            ref_audio_panel, value="(Optional) Select audio file..."
-        )
+        self.ref_audio_text_ctrl = wx.TextCtrl(ref_audio_panel, value="Default voice")
         self.ref_audio_text_ctrl.SetEditable(False)
-        self.ref_audio_button = wx.Button(ref_audio_panel, label="📂")
+        self.ref_audio_button = wx.Button(ref_audio_panel, label="📂 Select")
         self.ref_audio_button.Bind(wx.EVT_BUTTON, self.on_select_ref_audio)
-
         ref_audio_sizer.Add(self.ref_audio_text_ctrl, 1, wx.EXPAND | wx.RIGHT, 5)
         ref_audio_sizer.Add(self.ref_audio_button, 0)
-
         sizer.Add(self.ref_audio_label, pos=(row, 0), flag=wx.ALL, border=border)
         sizer.Add(ref_audio_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border)
         self.ref_audio_panel = ref_audio_panel
-        self.clone_voice_row = row
-        # Initially hide voice cloning (shown when Chatterbox selected)
-        self.ref_audio_label.Hide()
-        self.ref_audio_panel.Hide()
         row += 1
+
+        # Voice cloning tips (shorter to avoid cutoff)
+        self.ref_audio_hint = wx.StaticText(
+            panel, label="💡 5-15s clear speech, one speaker"
+        )
+        self.ref_audio_hint.SetForegroundColour(wx.Colour(120, 120, 120))
+        sizer.Add(self.ref_audio_hint, pos=(row, 1), flag=wx.LEFT, border=border)
+        row += 1
+
+        # Exaggeration slider with reset button
+        exagg_label_panel = wx.Panel(panel)
+        exagg_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        exagg_label_panel.SetSizer(exagg_label_sizer)
+        exagg_text_label = wx.StaticText(exagg_label_panel, label="Exaggeration")
+        exagg_help = wx.StaticText(exagg_label_panel, label=" ❓")
+        exagg_help.SetToolTip("Controls expressiveness: Low=monotone, High=dramatic")
+        exagg_label_sizer.Add(exagg_text_label, 0)
+        exagg_label_sizer.Add(exagg_help, 0)
+        self.exagg_label = exagg_label_panel
+        self.exagg_value = 0.5
+        exagg_panel = wx.Panel(panel)
+        exagg_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        exagg_panel.SetSizer(exagg_sizer)
+        self.exagg_slider = wx.Slider(
+            exagg_panel,
+            value=50,
+            minValue=0,
+            maxValue=100,
+            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS,
+        )
+        self.exagg_slider.SetTickFreq(25)
+        self.exagg_slider.SetToolTip(
+            "Controls expressiveness: Low=monotone, High=dramatic"
+        )
+        self.exagg_text = wx.StaticText(exagg_panel, label="0.5", size=(35, -1))
+        self.exagg_reset = wx.Button(exagg_panel, label="↺", size=(28, -1))
+        self.exagg_slider.Bind(wx.EVT_SLIDER, self.on_exagg_change)
+        self.exagg_reset.Bind(wx.EVT_BUTTON, self.on_exagg_reset)
+        self.exagg_reset.SetToolTip("Reset to 0.5")
+        exagg_sizer.Add(self.exagg_slider, 1, wx.EXPAND)
+        exagg_sizer.Add(self.exagg_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
+        exagg_sizer.Add(self.exagg_reset, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 3)
+        sizer.Add(self.exagg_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(exagg_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border)
+        self.exagg_panel = exagg_panel
+        row += 1
+
+        # CFG Scale slider with reset button
+        cfg_label_panel = wx.Panel(panel)
+        cfg_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cfg_label_panel.SetSizer(cfg_label_sizer)
+        cfg_text_label = wx.StaticText(cfg_label_panel, label="CFG Scale")
+        cfg_help = wx.StaticText(cfg_label_panel, label=" ❓")
+        cfg_help.SetToolTip(
+            "Controls voice adherence: Low=more variation, High=stricter match"
+        )
+        cfg_label_sizer.Add(cfg_text_label, 0)
+        cfg_label_sizer.Add(cfg_help, 0)
+        self.cfg_label = cfg_label_panel
+        self.cfg_value = 0.5
+        cfg_panel = wx.Panel(panel)
+        cfg_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        cfg_panel.SetSizer(cfg_sizer)
+        self.cfg_slider = wx.Slider(
+            cfg_panel,
+            value=50,
+            minValue=0,
+            maxValue=100,
+            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS,
+        )
+        self.cfg_slider.SetTickFreq(25)
+        self.cfg_slider.SetToolTip(
+            "Controls voice adherence: Low=more variation, High=stricter match"
+        )
+        self.cfg_text = wx.StaticText(cfg_panel, label="0.5", size=(35, -1))
+        self.cfg_reset = wx.Button(cfg_panel, label="↺", size=(28, -1))
+        self.cfg_slider.Bind(wx.EVT_SLIDER, self.on_cfg_change)
+        self.cfg_reset.Bind(wx.EVT_BUTTON, self.on_cfg_reset)
+        self.cfg_reset.SetToolTip("Reset to 0.5")
+        cfg_sizer.Add(self.cfg_slider, 1, wx.EXPAND)
+        cfg_sizer.Add(self.cfg_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
+        cfg_sizer.Add(self.cfg_reset, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 3)
+        sizer.Add(self.cfg_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(cfg_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border)
+        self.cfg_panel = cfg_panel
+        row += 1
+
+        # Preview voice button
+        self.preview_voice_button = wx.Button(panel, label="🔊 Preview Voice")
+        self.preview_voice_button.Bind(wx.EVT_BUTTON, self.on_preview_voice)
+        sizer.Add(self.preview_voice_button, pos=(row, 1), flag=wx.ALL, border=border)
+        row += 1
+
+        # Initially hide Kokoro voice dropdown (Chatterbox is default)
+        self.voice_label.Hide()
+        self.voice_dropdown.Hide()
+        # Chatterbox controls are shown by default
+        # === End Chatterbox Section ===
 
         # Speed
         speed_label = wx.StaticText(panel, label="Speed:")
@@ -606,19 +655,102 @@ class MainWindow(wx.Frame):
             # Hide voice selection (Chatterbox uses default voice or cloning)
             self.voice_label.Hide()
             self.voice_dropdown.Hide()
-            # Show voice cloning option
+            # Show Chatterbox controls
             self.ref_audio_label.Show()
             self.ref_audio_panel.Show()
+            self.ref_audio_hint.Show()
+            self.exagg_label.Show()
+            self.exagg_panel.Show()
+            self.cfg_label.Show()
+            self.cfg_panel.Show()
+            self.preview_voice_button.Show()
         else:
             self.selected_tts_model = "kokoro"
             # Show voice selection for Kokoro
             self.voice_label.Show()
             self.voice_dropdown.Show()
-            # Hide voice cloning option
+            # Hide Chatterbox controls
             self.ref_audio_label.Hide()
             self.ref_audio_panel.Hide()
+            self.ref_audio_hint.Hide()
+            self.exagg_label.Hide()
+            self.exagg_panel.Hide()
+            self.cfg_label.Hide()
+            self.cfg_panel.Hide()
+            self.preview_voice_button.Hide()
         self.params_panel.Layout()
         print(f"Selected TTS model: {self.selected_tts_model}")
+
+    def on_exagg_change(self, event):
+        """Handle exaggeration slider change."""
+        value = self.exagg_slider.GetValue() / 100.0
+        self.exagg_value = value
+        self.exagg_text.SetLabel(f"{value:.1f}")
+
+    def on_exagg_reset(self, event):
+        """Reset exaggeration to default value."""
+        self.exagg_slider.SetValue(50)
+        self.exagg_value = 0.5
+        self.exagg_text.SetLabel("0.5")
+
+    def on_cfg_change(self, event):
+        """Handle CFG scale slider change."""
+        value = self.cfg_slider.GetValue() / 100.0
+        self.cfg_value = value
+        self.cfg_text.SetLabel(f"{value:.1f}")
+
+    def on_cfg_reset(self, event):
+        """Reset CFG scale to default value."""
+        self.cfg_slider.SetValue(50)
+        self.cfg_value = 0.5
+        self.cfg_text.SetLabel("0.5")
+
+    def on_preview_voice(self, event):
+        """Preview the Chatterbox voice with current settings."""
+        self.preview_voice_button.SetLabel("⏳ Generating...")
+        self.preview_voice_button.Disable()
+
+        def generate_preview():
+            import audiblez.core as core
+
+            try:
+                core.load_spacy()
+                # Use a short sample text
+                sample_text = (
+                    "Hello, this is a preview of the voice settings you have selected."
+                )
+
+                pipeline = core.create_tts_pipeline(
+                    engine="chatterbox",
+                    voice=None,
+                    ref_audio=getattr(self, "ref_audio_path", None),
+                    ref_text=None,
+                )
+
+                audio_segments = core.gen_audio_segments(
+                    pipeline, sample_text, voice="", speed=float(self.selected_speed)
+                )
+
+                if audio_segments:
+                    final_audio = np.concatenate(audio_segments)
+                    tmp_file = NamedTemporaryFile(suffix=".wav", delete=False)
+                    soundfile.write(tmp_file, final_audio, core.sample_rate)
+                    cmd = ["ffplay", "-autoexit", "-nodisp", tmp_file.name]
+                    subprocess.run(cmd)
+            except Exception as e:
+                print(f"Preview error: {e}")
+            finally:
+                wx.CallAfter(self._reset_preview_button)
+
+        def run_preview():
+            threading.Thread(target=generate_preview, daemon=True).start()
+
+        wx.CallAfter(run_preview)
+
+    def _reset_preview_button(self):
+        """Reset preview button after playback."""
+        self.preview_voice_button.SetLabel("🔊 Preview Voice")
+        self.preview_voice_button.Enable()
 
     def on_select_ref_audio(self, event):
         """Handle reference audio file selection for voice cloning."""
