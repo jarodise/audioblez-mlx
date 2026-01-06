@@ -298,6 +298,8 @@ class MainWindow(wx.Frame):
         # Add cover image
         self.cover_bitmap = wx.StaticBitmap(self.book_info_panel, -1)
         self.book_info_sizer.Add(self.cover_bitmap, 0, wx.ALL, 5)
+        # Limit the height of the cover image to prevent layout issues
+        self.cover_bitmap.SetMaxSize((-1, 250))
 
         self.cover_bitmap.Refresh()
         self.book_info_panel.Refresh()
@@ -818,7 +820,7 @@ class MainWindow(wx.Frame):
             pil_image = Image.open(io.BytesIO(cover.content))
             wx_img = wx.EmptyImage(pil_image.size[0], pil_image.size[1])
             wx_img.SetData(pil_image.convert("RGB").tobytes())
-            cover_h = 200
+            cover_h = 100
             cover_w = int(cover_h * pil_image.size[0] / pil_image.size[1])
             wx_img.Rescale(cover_w, cover_h)
             self.cover_bitmap.SetBitmap(wx_img.ConvertToBitmap())
