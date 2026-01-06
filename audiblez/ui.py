@@ -518,6 +518,11 @@ class MainWindow(wx.Frame):
         self.start_button.Bind(wx.EVT_BUTTON, self.on_start)
         sizer.Add(self.start_button, 0, wx.ALL, 5)
 
+        # Add Choose Another Book button (visible before synthesis)
+        self.choose_book_button = wx.Button(panel, label="📚 Choose Another Book")
+        self.choose_book_button.Bind(wx.EVT_BUTTON, self.on_choose_another_book)
+        sizer.Add(self.choose_book_button, 0, wx.ALL, 5)
+
         # Add Stop button
         # self.stop_button = wx.Button(panel, label="⏹️ Stop Synthesis")
         # self.stop_button.Bind(wx.EVT_BUTTON, self.on_stop)
@@ -559,6 +564,21 @@ class MainWindow(wx.Frame):
         self.splitter.Hide()
         self.welcome_panel.Show()
         self.Layout()
+
+    def on_choose_another_book(self, event):
+        """Allow user to choose a different book without going back to welcome screen."""
+        with wx.FileDialog(
+            self,
+            "Open EPUB File",
+            wildcard="*.epub",
+            style=wx.FD_OPEN | wx.FD_FILE_MUST_EXIST,
+        ) as dialog:
+            if dialog.ShowModal() == wx.ID_CANCEL:
+                return
+            file_path = dialog.GetPath()
+            if file_path:
+                print(f"Switching to: {file_path}")
+                wx.CallAfter(self.open_epub, file_path)
 
     def open_output_folder_dialog(self, event):
         with wx.DirDialog(
