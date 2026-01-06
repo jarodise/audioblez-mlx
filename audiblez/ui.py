@@ -442,16 +442,20 @@ class MainWindow(wx.Frame):
         # Voice Cloning section (for Chatterbox)
         self.ref_audio_label = wx.StaticText(panel, label="Clone Voice:")
         self.ref_audio_path = None
-        self.ref_audio_text_ctrl = wx.TextCtrl(
-            panel, value="(Optional) Select audio file..."
-        )
-        self.ref_audio_text_ctrl.SetEditable(False)
-        self.ref_audio_button = wx.Button(panel, label="📂")
-        self.ref_audio_button.Bind(wx.EVT_BUTTON, self.on_select_ref_audio)
 
+        # Create a sub-panel for the ref audio controls
         ref_audio_panel = wx.Panel(panel)
         ref_audio_sizer = wx.BoxSizer(wx.HORIZONTAL)
         ref_audio_panel.SetSizer(ref_audio_sizer)
+
+        # Create controls with ref_audio_panel as parent (not panel)
+        self.ref_audio_text_ctrl = wx.TextCtrl(
+            ref_audio_panel, value="(Optional) Select audio file..."
+        )
+        self.ref_audio_text_ctrl.SetEditable(False)
+        self.ref_audio_button = wx.Button(ref_audio_panel, label="📂")
+        self.ref_audio_button.Bind(wx.EVT_BUTTON, self.on_select_ref_audio)
+
         ref_audio_sizer.Add(self.ref_audio_text_ctrl, 1, wx.EXPAND | wx.RIGHT, 5)
         ref_audio_sizer.Add(self.ref_audio_button, 0)
 
