@@ -16,3 +16,4 @@ dist
 *.m4b
 *.wav
 cover
+*.code-workspace

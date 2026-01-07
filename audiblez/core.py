@@ -60,13 +60,35 @@ CHATTERBOX_MODEL_ID = "mlx-community/chatterbox-turbo-fp16"
 class ChatterboxPipelineWrapper:
     """Wrapper to make Chatterbox compatible with Kokoro pipeline interface."""
 
+    # Silence duration between sentences and paragraphs (in seconds)
+    SENTENCE_PAUSE_DURATION = 0.5  # 500ms pause between sentences
+    PARAGRAPH_PAUSE_DURATION = 0.9  # 900ms pause between paragraphs
+
     def __init__(self, ref_audio=None, ref_text=None):
         self.ref_audio = ref_audio
         self.ref_text = ref_text
         self.model = None  # Lazy loaded
+        # Initialize spaCy for smart sentence detection
+        self.nlp = None
 
-    def __call__(self, text, voice=None, speed=1.0, split_pattern=None):
-        """Generate audio from text using Chatterbox, yielding (graphemes, phonemes, audio)."""
+    def _get_nlp(self):
+        """Lazy load spaCy model for sentence detection.
+
+        Uses en_core_web_sm which properly handles abbreviations like Mr., Dr., etc.
+        Falls back to xx_ent_wiki_sm with sentencizer if English model unavailable.
+        """
+        if self.nlp is None:
+            try:
+                # en_core_web_sm handles abbreviations correctly
+                self.nlp = spacy.load("en_core_web_sm")
+            except OSError:
+                # Fallback to multilingual model with sentencizer
+                self.nlp = spacy.load("xx_ent_wiki_sm")
+                self.nlp.add_pipe("sentencizer")
+        return self.nlp
+
+    def _generate_single_audio(self, text, speed):
+        """Generate audio for a single text segment."""
         import tempfile
         import os
         import glob as glob_module
@@ -96,18 +118,22 @@ class ChatterboxPipelineWrapper:
             matching_files = glob_module.glob(pattern)
 
             if matching_files:
-                output_file = matching_files[0]  # Take the first generated file
-                audio_data, sr = soundfile.read(output_file)
-                # Yield in same format as Kokoro: (graphemes, phonemes, audio)
-                yield text, "", audio_data
-                # Cleanup generated files
-                for f in matching_files:
+                # Concatenate all generated audio segments
+                audio_segments = []
+                for f in sorted(matching_files):
+                    audio_data, sr = soundfile.read(f)
+                    audio_segments.append(audio_data)
                     try:
                         os.unlink(f)
                     except:
                         pass
-            else:
-                print(f"Warning: No audio file generated for text: {text[:50]}...")
+                if audio_segments:
+                    return (
+                        np.concatenate(audio_segments)
+                        if len(audio_segments) > 1
+                        else audio_segments[0]
+                    )
+            return None
 
         finally:
             # Cleanup temp files
@@ -116,6 +142,60 @@ class ChatterboxPipelineWrapper:
                     os.unlink(tmp_path)
                 except:
                     pass
+
+    def _is_paragraph_break(self, text, sent_start, sent_end, next_sent_start):
+        """Check if there's a paragraph break (double newline) between sentences."""
+        if next_sent_start is None:
+            return False
+        between = text[sent_end:next_sent_start]
+        return "\n\n" in between or "\n \n" in between
+
+    def __call__(self, text, voice=None, speed=1.0, split_pattern=None):
+        """Generate audio from text using Chatterbox, yielding (graphemes, phonemes, audio).
+
+        Uses spaCy for smart sentence detection (handles abbreviations like Mr., Dr. correctly)
+        and adds natural pauses between sentences (longer pauses between paragraphs).
+        """
+        # Use spaCy for smart sentence splitting (handles "Mr. Jones" correctly)
+        nlp = self._get_nlp()
+        doc = nlp(text)
+        sentences = list(doc.sents)
+
+        if not sentences:
+            yield text, "", self._generate_single_audio(text, speed)
+            return
+
+        # Generate silence for pauses
+        sentence_silence_samples = int(self.SENTENCE_PAUSE_DURATION * sample_rate)
+        paragraph_silence_samples = int(self.PARAGRAPH_PAUSE_DURATION * sample_rate)
+        sentence_silence = np.zeros(sentence_silence_samples, dtype=np.float32)
+        paragraph_silence = np.zeros(paragraph_silence_samples, dtype=np.float32)
+
+        audio_segments = []
+        for i, sent in enumerate(sentences):
+            sentence_text = sent.text.strip()
+            if not sentence_text:
+                continue
+
+            audio = self._generate_single_audio(sentence_text, speed)
+            if audio is not None:
+                audio_segments.append(audio)
+                # Add pause after each sentence except the last one
+                if i < len(sentences) - 1:
+                    next_sent = sentences[i + 1]
+                    # Check for paragraph break (double newline between sentences)
+                    if self._is_paragraph_break(
+                        text, sent.end_char, sent.end_char, next_sent.start_char
+                    ):
+                        audio_segments.append(paragraph_silence)
+                    else:
+                        audio_segments.append(sentence_silence)
+
+        if audio_segments:
+            final_audio = np.concatenate(audio_segments)
+            yield text, "", final_audio
+        else:
+            print(f"Warning: No audio file generated for text: {text[:50]}...")
 
 
 def create_tts_pipeline(engine, voice, ref_audio=None, ref_text=None):
@@ -481,11 +561,26 @@ def print_selected_chapters(document_chapters, chapters):
 def gen_audio_segments(
     pipeline, text, voice, speed, stats=None, max_sentences=None, post_event=None
 ):
-    nlp = spacy.load("xx_ent_wiki_sm")
-    nlp.add_pipe("sentencizer")
+    # Use en_core_web_sm for proper abbreviation handling (Mr., Dr., Inc., etc.)
+    # Falls back to xx_ent_wiki_sm with sentencizer if English model unavailable
+    try:
+        nlp = spacy.load("en_core_web_sm")
+    except OSError:
+        nlp = spacy.load("xx_ent_wiki_sm")
+        nlp.add_pipe("sentencizer")
+
+    # Pause durations (in seconds)
+    SENTENCE_PAUSE = 0.35  # 350ms between sentences
+    PARAGRAPH_PAUSE = 0.8  # 800ms between paragraphs
+
+    # Generate silence arrays
+    sentence_silence = np.zeros(int(SENTENCE_PAUSE * sample_rate), dtype=np.float32)
+    paragraph_silence = np.zeros(int(PARAGRAPH_PAUSE * sample_rate), dtype=np.float32)
+
     audio_segments = []
     doc = nlp(text)
     sentences = list(doc.sents)
+
     for i, sent in enumerate(sentences):
         if max_sentences and i > max_sentences:
             break
@@ -496,6 +591,22 @@ def gen_audio_segments(
             if USE_MLX and hasattr(audio, "shape") and len(audio.shape) > 1:
                 audio = audio.squeeze(0)
             audio_segments.append(audio)
+
+        # Add pause after each sentence (except the last)
+        if i < len(sentences) - 1:
+            next_sent = sentences[i + 1]
+            # Check for paragraph break (double newline between sentences)
+            # Look at text from end of current sentence to start of next
+            # Need to check a wider window since spaCy may skip whitespace
+            start_pos = max(0, sent.end_char - 2)
+            end_pos = min(len(text), next_sent.start_char + 2)
+            between_text = text[start_pos:end_pos]
+            # EPUB extraction uses single \n between paragraphs (from <p> tags)
+            if "\n" in between_text:
+                audio_segments.append(paragraph_silence)
+            else:
+                audio_segments.append(sentence_silence)
+
         if stats:
             stats.processed_chars += len(sent.text)
             stats.progress = stats.processed_chars * 100 // stats.total_chars
