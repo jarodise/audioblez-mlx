@@ -864,6 +864,18 @@ class MainWindow(wx.Frame):
     def on_table_unchecked(self, event):
         self.document_chapters[event.GetIndex()].is_selected = False
 
+    def on_select_all_chapters(self, event):
+        """Select all chapters in the table."""
+        for i in range(self.table.GetItemCount()):
+            self.table.CheckItem(i, True)
+            self.document_chapters[i].is_selected = True
+
+    def on_select_none_chapters(self, event):
+        """Deselect all chapters in the table."""
+        for i in range(self.table.GetItemCount()):
+            self.table.CheckItem(i, False)
+            self.document_chapters[i].is_selected = False
+
     def on_table_selected(self, event):
         chapter = self.document_chapters[event.GetIndex()]
         print("Selected", event.GetIndex(), chapter.short_name)
@@ -904,7 +916,18 @@ class MainWindow(wx.Frame):
         title_text = wx.StaticText(
             panel, label=f"Select chapters to include in the audiobook:"
         )
+
+        # Create Select All / Select None buttons
+        button_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        select_all_btn = wx.Button(panel, label="Select All")
+        select_none_btn = wx.Button(panel, label="Select None")
+        select_all_btn.Bind(wx.EVT_BUTTON, self.on_select_all_chapters)
+        select_none_btn.Bind(wx.EVT_BUTTON, self.on_select_none_chapters)
+        button_sizer.Add(select_all_btn, 0, wx.RIGHT, 5)
+        button_sizer.Add(select_none_btn, 0)
+
         sizer.Add(title_text, 0, wx.ALL, 5)
+        sizer.Add(button_sizer, 0, wx.LEFT | wx.RIGHT | wx.BOTTOM, 5)
         sizer.Add(table, 1, wx.ALL | wx.EXPAND, 5)
         return panel
 
