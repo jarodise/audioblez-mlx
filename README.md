@@ -116,6 +116,26 @@ On an M2 MacBook Pro:
 *   **Speed**: ~70-80 chars/second
 *   **Time**: "Animal Farm" (~160k chars) takes ~40 minutes.
 
+## Resuming Interrupted Jobs
+
+Audiblez **automatically resumes** from where it left off if generation is interrupted (crash, error, or manual stop). It detects existing chapter MP3 files and skips them.
+
+### CLI Resume
+Simply run the same command again with the **same output folder**:
+```bash
+audiblez book.epub -e chatterbox -o ~/Downloads/MyBook
+# If interrupted, just run the exact same command again
+```
+
+### GUI Resume
+1. Open the same EPUB file
+2. Set **Output Folder** to the parent of your existing MP3 folder
+   - If your files are in `~/Downloads/Book Title/`, set output to `~/Downloads`
+3. Use the same TTS model and voice settings
+4. Click **Start** — existing chapters will be skipped
+
+> **Tip**: To regenerate a specific chapter (e.g., if it has issues), delete that chapter's MP3 file and run again.
+
 ## Author
 
 Original by [Claudio Santini](https://claudio.uk).
