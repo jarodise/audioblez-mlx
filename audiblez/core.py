@@ -656,6 +656,20 @@ def find_document_chapters_and_extract_texts(book):
             continue
         xml = chapter.get_body_content()
         soup = BeautifulSoup(xml, features="lxml")
+
+        # Remove footnote/endnote reference elements before extracting text
+        # This prevents citations like [1], [2] from being read aloud in audiobooks
+        # Common patterns: <a class="...note..."> or links containing just [number]
+        for a in soup.find_all(
+            "a", class_=re.compile(r"note|footnote|endnote|enref", re.I)
+        ):
+            a.decompose()
+        # Also remove links that contain only bracketed or plain numbers (footnote refs)
+        for a in soup.find_all("a"):
+            link_text = a.get_text().strip()
+            if re.match(r"^\[?\d+\]?$", link_text):
+                a.decompose()
+
         chapter.extracted_text = ""
         html_content_tags = ["title", "p", "h1", "h2", "h3", "h4", "li"]
         for text in [
