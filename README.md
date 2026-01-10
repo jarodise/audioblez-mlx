@@ -60,6 +60,30 @@ Best for speed and customization. Supports **Voice Cloning**.
 *   **Exaggeration**: Controls expressiveness/emotion (Low=monotone, High=dramatic).
 *   **CFG Scale**: Controls how closely it mimics the reference voice.
 
+**Expressive Event Tags:**
+Chatterbox Turbo supports emotion/sound tags that can be embedded in text for more natural expressions:
+
+| Tag | Effect |
+|-----|--------|
+| `[laugh]` | Laughter |
+| `[chuckle]` | Light laugh |
+| `[sigh]` | Sigh |
+| `[gasp]` | Gasp of surprise |
+| `[cough]` | Cough |
+| `[groan]` | Groan |
+| `[sniff]` | Sniff |
+| `[shush]` | Shushing sound |
+| `[clear throat]` | Throat clearing |
+| `[pause]` | Adds a pause |
+| `[whisper]` | Whispered speech |
+
+**Example:**
+```
+[sigh] I can't believe it's Monday again. [groan] But hey, [clear throat] let's make the best of it!
+```
+
+> **Note**: Quotation marks are automatically removed during processing to prevent the model from incorrectly vocalizing them as sighs.
+
 ### 2. Kokoro-82M
 Supported languages and built-in voices:
 

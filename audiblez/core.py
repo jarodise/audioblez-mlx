@@ -69,7 +69,22 @@ class ChatterboxPipelineWrapper:
         self.ref_text = ref_text
         self.model = None  # Lazy loaded
         # Initialize spaCy for smart sentence detection
-        self.nlp = None
+        self._nlp = None
+
+    def _clean_text_for_tts(self, text):
+        """Clean text for TTS by removing quotation marks that cause vocal artifacts.
+
+        Removes various types of quotation marks:
+        - Straight quotes: " and '
+        - Smart/curly quotes: “ ” ‘ ’
+        - Other common quote variants
+        """
+        # Remove all types of quotation marks
+        quote_chars = ['"', "“", "”", "'", "‘", "’", "«", "»", "‹", "›"]
+        cleaned = text
+        for char in quote_chars:
+            cleaned = cleaned.replace(char, "")
+        return cleaned
 
     def _get_nlp(self):
         """Lazy load spaCy model for sentence detection.
@@ -77,21 +92,24 @@ class ChatterboxPipelineWrapper:
         Uses en_core_web_sm which properly handles abbreviations like Mr., Dr., etc.
         Falls back to xx_ent_wiki_sm with sentencizer if English model unavailable.
         """
-        if self.nlp is None:
+        if self._nlp is None:
             try:
                 # en_core_web_sm handles abbreviations correctly
-                self.nlp = spacy.load("en_core_web_sm")
+                self._nlp = spacy.load("en_core_web_sm")
             except OSError:
                 # Fallback to multilingual model with sentencizer
-                self.nlp = spacy.load("xx_ent_wiki_sm")
-                self.nlp.add_pipe("sentencizer")
-        return self.nlp
+                self._nlp = spacy.load("xx_ent_wiki_sm")
+                self._nlp.add_pipe("sentencizer")
+        return self._nlp
 
     def _generate_single_audio(self, text, speed):
         """Generate audio for a single text segment."""
         import tempfile
         import os
         import glob as glob_module
+
+        # Clean text to remove quotation marks that cause vocal artifacts
+        cleaned_text = self._clean_text_for_tts(text)
 
         # Create a temporary file for output
         with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -102,7 +120,7 @@ class ChatterboxPipelineWrapper:
 
             # Generate audio using mlx_generate_audio
             mlx_generate_audio(
-                text=text,
+                text=cleaned_text,
                 model=CHATTERBOX_MODEL_ID,
                 ref_audio=self.ref_audio,
                 ref_text=self.ref_text,
