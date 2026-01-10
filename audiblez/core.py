@@ -125,6 +125,8 @@ class ChatterboxPipelineWrapper:
                 ref_audio=self.ref_audio,
                 ref_text=self.ref_text,
                 speed=speed,
+                voice=self.ref_audio or "default",  # Show ref audio path in logs
+                lang_code="auto",  # Chatterbox auto-detects language from audio
                 file_prefix=file_prefix,
                 audio_format="wav",
                 verbose=False,
