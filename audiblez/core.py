@@ -72,18 +72,32 @@ class ChatterboxPipelineWrapper:
         self._nlp = None
 
     def _clean_text_for_tts(self, text):
-        """Clean text for TTS by removing quotation marks that cause vocal artifacts.
+        """Clean text for TTS by removing quotation marks and normalizing ALL CAPS text.
 
         Removes various types of quotation marks:
         - Straight quotes: " and '
         - Smart/curly quotes: “ ” ‘ ’
         - Other common quote variants
+
+        Normalizes ALL CAPS text to title case for better pronunciation.
         """
         # Remove all types of quotation marks
         quote_chars = ['"', "“", "”", "'", "‘", "’", "«", "»", "‹", "›"]
         cleaned = text
         for char in quote_chars:
             cleaned = cleaned.replace(char, "")
+
+        # Normalize ALL CAPS text to title case for better pronunciation
+        # Check if text is mostly uppercase (more than 70% of alphabetic chars are uppercase)
+        alpha_chars = [c for c in cleaned if c.isalpha()]
+        if alpha_chars:
+            uppercase_ratio = sum(1 for c in alpha_chars if c.isupper()) / len(
+                alpha_chars
+            )
+            if uppercase_ratio > 0.7:
+                # Text is mostly ALL CAPS, convert to title case
+                cleaned = cleaned.title()
+
         return cleaned
 
     def _get_nlp(self):
