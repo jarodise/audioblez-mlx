@@ -231,10 +231,12 @@ def create_tts_pipeline(engine, voice, ref_audio=None, ref_text=None):
     if engine == ENGINE_CHATTERBOX:
         if not USE_MLX:
             raise RuntimeError("Chatterbox engine requires Apple Silicon with MLX")
+
+        ref_text_info = " (with transcript)" if ref_text else ""
         print(
             f"🎤 Using Chatterbox Turbo engine"
             + (
-                f" with voice cloning from: {ref_audio}"
+                f" with voice cloning from: {ref_audio}{ref_text_info}"
                 if ref_audio
                 else " (default voice)"
             )

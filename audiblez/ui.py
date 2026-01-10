@@ -429,6 +429,28 @@ class MainWindow(wx.Frame):
         sizer.Add(self.ref_audio_hint, pos=(row, 1), flag=wx.LEFT, border=border)
         row += 1
 
+        # Reference text (transcript) - optional for better cloning
+        self.ref_text_label = wx.StaticText(panel, label="Reference Text:")
+        self.ref_text_input = wx.TextCtrl(
+            panel, value="", style=wx.TE_MULTILINE, size=(-1, 60)
+        )
+        self.ref_text_input.SetHint(
+            "Optional: Transcript of reference audio for better quality"
+        )
+        sizer.Add(self.ref_text_label, pos=(row, 0), flag=wx.ALL, border=border)
+        sizer.Add(
+            self.ref_text_input, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border
+        )
+        row += 1
+
+        # Reference text hint
+        self.ref_text_hint = wx.StaticText(
+            panel, label="💡 Providing transcript can improve cloning accuracy"
+        )
+        self.ref_text_hint.SetForegroundColour(wx.Colour(120, 120, 120))
+        sizer.Add(self.ref_text_hint, pos=(row, 1), flag=wx.LEFT, border=border)
+        row += 1
+
         # Preview voice button
         self.preview_voice_button = wx.Button(panel, label="🔊 Preview Voice")
         self.preview_voice_button.Bind(wx.EVT_BUTTON, self.on_preview_voice)
@@ -595,6 +617,9 @@ class MainWindow(wx.Frame):
             self.ref_audio_label.Show()
             self.ref_audio_panel.Show()
             self.ref_audio_hint.Show()
+            self.ref_text_label.Show()
+            self.ref_text_input.Show()
+            self.ref_text_hint.Show()
             self.preview_voice_button.Show()
         else:
             self.selected_tts_model = "kokoro"
@@ -605,6 +630,9 @@ class MainWindow(wx.Frame):
             self.ref_audio_label.Hide()
             self.ref_audio_panel.Hide()
             self.ref_audio_hint.Hide()
+            self.ref_text_label.Hide()
+            self.ref_text_input.Hide()
+            self.ref_text_hint.Hide()
             self.preview_voice_button.Hide()
         self.params_panel.Layout()
         print(f"Selected TTS model: {self.selected_tts_model}")
@@ -624,11 +652,15 @@ class MainWindow(wx.Frame):
                     "Hello, this is a preview of the voice settings you have selected."
                 )
 
+                # Get ref_text from input field if provided
+                ref_text_value = self.ref_text_input.GetValue().strip()
+                ref_text = ref_text_value if ref_text_value else None
+
                 pipeline = core.create_tts_pipeline(
                     engine="chatterbox",
                     voice=None,
                     ref_audio=getattr(self, "ref_audio_path", None),
-                    ref_text=None,
+                    ref_text=ref_text,
                 )
 
                 audio_segments = core.gen_audio_segments(
@@ -837,12 +869,16 @@ class MainWindow(wx.Frame):
 
             core.load_spacy()
 
+            # Get ref_text from input field if provided
+            ref_text_value = self.ref_text_input.GetValue().strip()
+            ref_text = ref_text_value if ref_text_value else None
+
             # Use the factory function to create pipeline based on selected engine
             pipeline = core.create_tts_pipeline(
                 engine=self.selected_tts_model,
                 voice=self.get_selected_voice(),
                 ref_audio=getattr(self, "ref_audio_path", None),
-                ref_text=None,
+                ref_text=ref_text,
             )
 
             text = self.selected_chapter.extracted_text[:300]
@@ -911,6 +947,10 @@ class MainWindow(wx.Frame):
             "Starting Audiobook Synthesis",
             dict(file_path=file_path, voice=voice, pick_manually=False, speed=speed),
         )
+        # Get ref_text from input field if provided
+        ref_text_value = self.ref_text_input.GetValue().strip()
+        ref_text = ref_text_value if ref_text_value else None
+
         self.core_thread = CoreThread(
             params=dict(
                 file_path=file_path,
@@ -921,6 +961,7 @@ class MainWindow(wx.Frame):
                 selected_chapters=selected_chapters,
                 engine=self.selected_tts_model,
                 ref_audio=getattr(self, "ref_audio_path", None),
+                ref_text=ref_text,
             )
         )
         self.core_thread.start()

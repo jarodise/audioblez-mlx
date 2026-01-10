@@ -55,6 +55,7 @@ Best for speed and customization. Supports **Voice Cloning**.
 
 *   **Default Mode**: Uses a high-quality neutral English voice.
 *   **Voice Cloning**: Provide a 5-15s audio file (`.mp3`, `.wav`) to clone that voice.
+    *   **Reference Text (Optional)**: Provide a transcript of your reference audio to improve cloning accuracy. This helps the model better understand pronunciation and prosody.
 
 **Expressive Event Tags:**
 Chatterbox Turbo supports emotion/sound tags that can be embedded in text for more natural expressions:
