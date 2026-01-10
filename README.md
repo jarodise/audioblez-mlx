@@ -56,10 +56,6 @@ Best for speed and customization. Supports **Voice Cloning**.
 *   **Default Mode**: Uses a high-quality neutral English voice.
 *   **Voice Cloning**: Provide a 5-15s audio file (`.mp3`, `.wav`) to clone that voice.
 
-**GUI Voice Settings:**
-*   **Exaggeration**: Controls expressiveness/emotion (Low=monotone, High=dramatic).
-*   **CFG Scale**: Controls how closely it mimics the reference voice.
-
 **Expressive Event Tags:**
 Chatterbox Turbo supports emotion/sound tags that can be embedded in text for more natural expressions:
 

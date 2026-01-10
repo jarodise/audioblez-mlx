@@ -429,84 +429,6 @@ class MainWindow(wx.Frame):
         sizer.Add(self.ref_audio_hint, pos=(row, 1), flag=wx.LEFT, border=border)
         row += 1
 
-        # Exaggeration slider with reset button
-        exagg_label_panel = wx.Panel(panel)
-        exagg_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        exagg_label_panel.SetSizer(exagg_label_sizer)
-        exagg_text_label = wx.StaticText(exagg_label_panel, label="Exaggeration")
-        exagg_help = wx.StaticText(exagg_label_panel, label=" ❓")
-        exagg_help.SetToolTip("Controls expressiveness: Low=monotone, High=dramatic")
-        exagg_label_sizer.Add(exagg_text_label, 0)
-        exagg_label_sizer.Add(exagg_help, 0)
-        self.exagg_label = exagg_label_panel
-        self.exagg_value = 0.5
-        exagg_panel = wx.Panel(panel)
-        exagg_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        exagg_panel.SetSizer(exagg_sizer)
-        self.exagg_slider = wx.Slider(
-            exagg_panel,
-            value=50,
-            minValue=0,
-            maxValue=100,
-            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS,
-        )
-        self.exagg_slider.SetTickFreq(25)
-        self.exagg_slider.SetToolTip(
-            "Controls expressiveness: Low=monotone, High=dramatic"
-        )
-        self.exagg_text = wx.StaticText(exagg_panel, label="0.5", size=(35, -1))
-        self.exagg_reset = wx.Button(exagg_panel, label="↺", size=(28, -1))
-        self.exagg_slider.Bind(wx.EVT_SLIDER, self.on_exagg_change)
-        self.exagg_reset.Bind(wx.EVT_BUTTON, self.on_exagg_reset)
-        self.exagg_reset.SetToolTip("Reset to 0.5")
-        exagg_sizer.Add(self.exagg_slider, 1, wx.EXPAND)
-        exagg_sizer.Add(self.exagg_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
-        exagg_sizer.Add(self.exagg_reset, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 3)
-        sizer.Add(self.exagg_label, pos=(row, 0), flag=wx.ALL, border=border)
-        sizer.Add(exagg_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border)
-        self.exagg_panel = exagg_panel
-        row += 1
-
-        # CFG Scale slider with reset button
-        cfg_label_panel = wx.Panel(panel)
-        cfg_label_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        cfg_label_panel.SetSizer(cfg_label_sizer)
-        cfg_text_label = wx.StaticText(cfg_label_panel, label="CFG Scale")
-        cfg_help = wx.StaticText(cfg_label_panel, label=" ❓")
-        cfg_help.SetToolTip(
-            "Controls voice adherence: Low=more variation, High=stricter match"
-        )
-        cfg_label_sizer.Add(cfg_text_label, 0)
-        cfg_label_sizer.Add(cfg_help, 0)
-        self.cfg_label = cfg_label_panel
-        self.cfg_value = 0.5
-        cfg_panel = wx.Panel(panel)
-        cfg_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        cfg_panel.SetSizer(cfg_sizer)
-        self.cfg_slider = wx.Slider(
-            cfg_panel,
-            value=50,
-            minValue=0,
-            maxValue=100,
-            style=wx.SL_HORIZONTAL | wx.SL_AUTOTICKS,
-        )
-        self.cfg_slider.SetTickFreq(25)
-        self.cfg_slider.SetToolTip(
-            "Controls voice adherence: Low=more variation, High=stricter match"
-        )
-        self.cfg_text = wx.StaticText(cfg_panel, label="0.5", size=(35, -1))
-        self.cfg_reset = wx.Button(cfg_panel, label="↺", size=(28, -1))
-        self.cfg_slider.Bind(wx.EVT_SLIDER, self.on_cfg_change)
-        self.cfg_reset.Bind(wx.EVT_BUTTON, self.on_cfg_reset)
-        self.cfg_reset.SetToolTip("Reset to 0.5")
-        cfg_sizer.Add(self.cfg_slider, 1, wx.EXPAND)
-        cfg_sizer.Add(self.cfg_text, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 5)
-        cfg_sizer.Add(self.cfg_reset, 0, wx.ALIGN_CENTER_VERTICAL | wx.LEFT, 3)
-        sizer.Add(self.cfg_label, pos=(row, 0), flag=wx.ALL, border=border)
-        sizer.Add(cfg_panel, pos=(row, 1), flag=wx.ALL | wx.EXPAND, border=border)
-        self.cfg_panel = cfg_panel
-        row += 1
-
         # Preview voice button
         self.preview_voice_button = wx.Button(panel, label="🔊 Preview Voice")
         self.preview_voice_button.Bind(wx.EVT_BUTTON, self.on_preview_voice)
@@ -673,10 +595,6 @@ class MainWindow(wx.Frame):
             self.ref_audio_label.Show()
             self.ref_audio_panel.Show()
             self.ref_audio_hint.Show()
-            self.exagg_label.Show()
-            self.exagg_panel.Show()
-            self.cfg_label.Show()
-            self.cfg_panel.Show()
             self.preview_voice_button.Show()
         else:
             self.selected_tts_model = "kokoro"
@@ -687,37 +605,9 @@ class MainWindow(wx.Frame):
             self.ref_audio_label.Hide()
             self.ref_audio_panel.Hide()
             self.ref_audio_hint.Hide()
-            self.exagg_label.Hide()
-            self.exagg_panel.Hide()
-            self.cfg_label.Hide()
-            self.cfg_panel.Hide()
             self.preview_voice_button.Hide()
         self.params_panel.Layout()
         print(f"Selected TTS model: {self.selected_tts_model}")
-
-    def on_exagg_change(self, event):
-        """Handle exaggeration slider change."""
-        value = self.exagg_slider.GetValue() / 100.0
-        self.exagg_value = value
-        self.exagg_text.SetLabel(f"{value:.1f}")
-
-    def on_exagg_reset(self, event):
-        """Reset exaggeration to default value."""
-        self.exagg_slider.SetValue(50)
-        self.exagg_value = 0.5
-        self.exagg_text.SetLabel("0.5")
-
-    def on_cfg_change(self, event):
-        """Handle CFG scale slider change."""
-        value = self.cfg_slider.GetValue() / 100.0
-        self.cfg_value = value
-        self.cfg_text.SetLabel(f"{value:.1f}")
-
-    def on_cfg_reset(self, event):
-        """Reset CFG scale to default value."""
-        self.cfg_slider.SetValue(50)
-        self.cfg_value = 0.5
-        self.cfg_text.SetLabel("0.5")
 
     def on_preview_voice(self, event):
         """Preview the Chatterbox voice with current settings."""
