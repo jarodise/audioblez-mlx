@@ -81,8 +81,8 @@ class ChatterboxPipelineWrapper:
 
         Normalizes ALL CAPS text to title case for better pronunciation.
         """
-        # Remove all types of quotation marks
-        quote_chars = ['"', "“", "”", "'", "‘", "’", "«", "»", "‹", "›"]
+        # Remove only double quotation marks and guillemets (preserve apostrophes)
+        quote_chars = ['"', "“", "”", "«", "»", "‹", "›"]
         cleaned = text
         for char in quote_chars:
             cleaned = cleaned.replace(char, "")
